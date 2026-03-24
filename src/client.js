@@ -6,6 +6,7 @@ import { DbConnection, tables } from './module_bindings';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { ViewportGizmo } from "three-viewport-gizmo";
+import { Pane } from "tweakpane";
 
 // import { GUI } from 'three/addons/libs/lil-gui.module.min.js'
 // import { Value } from 'three/examples/jsm/inspector/ui/Values.js';
@@ -16,6 +17,15 @@ const HOST = 'ws://localhost:3000';
 const DB_NAME = 'spacetime-app-physics';
 
 const {div, button, label, input, li, ul} = van.tags;
+
+const PARAMS = {
+  key:"WASD = MOVEMENT",
+  key1:"R = Rest Position",
+  key2:"X = Test Foo",
+  block_position:{x:0,y:0,z:0}
+}
+
+const wall_positions = div({style:`background-color:gray;`});
 const size = 10;
 const divisions = 10;
 const chat_messages = div();
@@ -41,6 +51,30 @@ const gizmo = new ViewportGizmo(camera, renderer,{
   placement: "bottom-right",
 });
 gizmo.attachControls(controls);
+
+//-----------------------------------------------
+// 
+//-----------------------------------------------
+function create_cube_wireframe(){
+  const cgeometry = new THREE.BoxGeometry( 1, 1, 1 );
+  // const cmaterial = new THREE.MeshBasicMaterial({
+  const cmaterial = new THREE.MeshStandardMaterial({
+    // color: 0x000000,
+    color: 0x00bfff,// blue
+    wireframe:true
+  });
+  const ccube = new THREE.Mesh( cgeometry, cmaterial );
+  // scene.add( cube );
+  return ccube;
+}
+
+const ph_cube = create_cube_wireframe();
+
+
+const axesHelper = new THREE.AxesHelper(2);
+axesHelper.add(ph_cube);
+scene.add(axesHelper);
+
 
 
 function apply_user(ctx){
@@ -76,7 +110,6 @@ function check_position(row){
   }
 }
 
-
 // https://spacetimedb.com/docs/clients/api/
 // 
 // spacetime sql --server local spacetime-app-map "SELECT * FROM user"
@@ -109,6 +142,7 @@ function setupDBListen(){
   setupDBUser();
   //setupDBMessages()
   setupDBEntities();
+  setupDBObstacle();
 
     // conn
     //   .subscriptionBuilder()
@@ -193,7 +227,6 @@ function setupDBEntities(){
   //   // console.log("newRow:", newRow);
   // })
 
-
   // conn
   //   .subscriptionBuilder()
   //   // .onApplied((ctx) => apply_user(ctx))
@@ -218,6 +251,109 @@ function setupDBEntities(){
   //   // update_model_player(newRow);
   // })
 
+}
+
+//-----------------------------------------------
+// WALL
+//-----------------------------------------------
+function click_wall_delete(id){
+  console.log("delete id:", id);
+  conn.reducers.deleteObstacle({id});
+}
+
+function update_wall(row){
+  const el_item = document.getElementById(row.id);
+  if(!el_item){
+    van.add(wall_positions,div({id:row.id},
+      label('ID:', row.id),
+      label(' x:' + row.position.x.toFixed(2) +' y:' + row.position.y.toFixed(2) +' z:' + row.position.z.toFixed(2)),
+      button({onclick:()=>click_wall_delete(row.id)},'delete')
+    ));
+  }else{
+    el_item.remove();
+    van.add(wall_positions,div({id:row.id},
+      label('ID:', row.id),
+      label(' x:' + row.position.x +' y:' + row.position.x +' z:' + row.position.x),
+      button({onclick:()=>click_wall_delete(row.id)},'delete')
+    ));
+  }
+}
+
+function create_wall(row){
+  const geometry = new THREE.BoxGeometry( 1, 1, 1 );
+  const material = new THREE.MeshBasicMaterial( { 
+    // color: 0x00ffff //green light
+    color: 0xFF0000 //red
+  });
+  const cube = new THREE.Mesh( geometry, material );
+  console.log("wall row");
+  console.log(row);
+  cube.userData.row = row;
+  cube.position.x = row.position.x;
+  cube.position.y = row.position.y;
+  cube.position.z = row.position.z;
+  console.log(cube.position);
+  scene.add( cube );
+}
+
+function delete_wall(row){
+  const el_item = document.getElementById(row.id);
+  el_item.remove();
+
+  scene.traverse((obj) => {
+    if (obj.userData?.row?.id == row.id) {
+      // obj.remove(); // nope...
+      scene.remove(obj)
+      console.log(obj.userData);
+      console.log("found????")
+      // toRemove.push(obj);
+    }
+  });
+}
+
+function update_model_wall(row){
+  let isFound = false;
+  // console.log("check====================:", isFound);
+  // scene.traverse()
+  for (const obj_model of scene.children) {
+    // no recursion
+    // console.log(obj_model.userData)
+    if (obj_model.userData?.row){
+      if (obj_model.userData.row?.id == row.id){
+        isFound = true;
+        obj_model.userData.row = row;
+        obj_model.position.x = row.position.x;
+        obj_model.position.y = row.position.y;
+        obj_model.position.z = row.position.z;
+        break;
+      }
+    }
+  }
+  console.log("isFound:", isFound);
+  if(isFound){
+  }else{
+    // console.log('create cube');
+    create_wall(row);
+  }
+}
+
+function setupDBObstacle(){
+  conn
+    .subscriptionBuilder()
+    .subscribe(tables.Obstacle3D);
+
+  conn.db.Obstacle3D.onInsert((ctx, row)=>{
+    // console.log('insert Obstacle3D row');
+    // console.log(row);
+    update_wall(row);
+    update_model_wall(row);
+  });
+
+  conn.db.Obstacle3D.onDelete((ctx, row)=>{
+    // console.log('delete Obstacle3D row');
+    // console.log(row);
+    delete_wall(row);
+  });
 }
 
 //-----------------------------------------------
@@ -295,7 +431,8 @@ function App(){
         // ),
         // chat_box,
         // chat_messages,
-        entity_position
+        entity_position,
+        wall_positions
     )
 }
 
@@ -408,7 +545,6 @@ function updateMovementDirection() {
 function initKeyboardControls() {
   window.addEventListener('keydown', handleKeyDown);
   window.addEventListener('keyup', handleKeyUp);
-
   console.log("✅ Keyboard controls initialized (normalized diagonal movement)");
 }
 
@@ -525,7 +661,6 @@ function animate( time ) {
   // cube.rotation.y = time / 1000;
 }
 
-
 function onWindowResize(event){
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -538,4 +673,45 @@ window.addEventListener('resize',onWindowResize);
 
 document.body.appendChild( renderer.domElement );
 renderer.setAnimationLoop( animate );
+
+function setupPane(){
+  const pane = new Pane();
+
+
+  const keysPane = pane.addFolder({
+    title: 'Keys',
+  });
+  keysPane.addBinding(PARAMS, 'key',{disabled:true})
+  keysPane.addBinding(PARAMS, 'key1',{disabled:true})
+  keysPane.addBinding(PARAMS, 'key2',{disabled:true})
+
+
+  const blockPane = pane.addFolder({
+    title: 'Block',
+  });
+
+  blockPane.addBinding(PARAMS, 'block_position',{
+    label:'Position'
+  }).on('change', (ev) => {
+    // console.log(PARAMS.block_position);
+    axesHelper.position.set(
+      PARAMS.block_position.x,
+      PARAMS.block_position.y,
+      PARAMS.block_position.z
+    );
+  });
+
+  blockPane.addButton({title:'Spawn Block'})
+    .on('click',()=>{
+      console.log("Spawn Block");
+      console.log("spawn x:", PARAMS.block_position.x, " y: ", PARAMS.block_position.y ," z:", PARAMS.block_position.z);
+      conn.reducers.createObstacle({
+        x: PARAMS.block_position.x,
+        y: PARAMS.block_position.y,
+        z: PARAMS.block_position.z
+      });
+    })
+}
+
+setupPane()
 // end

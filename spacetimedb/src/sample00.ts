@@ -58,21 +58,45 @@ const Entity = table(
   }
 );
 
-const Obstacle3D = table({
-  name: 'obstacle3d', public: true
-},{
-  id: t.u64().primaryKey().autoInc(),
-  position: Coordinates3D,
-  size:Coordinates3D
-});
+const Transform3D = table(
+  { name: 'transform3d', public: true },
+  {
+    identity: t.identity().primaryKey(),
+    position:Coordinates3D,
+    velocity:Coordinates3D,
+    size:Coordinates3D,
+  }
+);
 
-// const Transform3D = table(
-//   { name: 'transform3d', public: true },
+// const Body2D = table(
+//   { name: 'body_2d', public: true },
 //   {
 //     identity: t.identity().primaryKey(),
-//     position:Coordinates3D,
-//     velocity:Coordinates3D,
-//     size:Coordinates3D,
+//     x: t.f64().default(0),
+//     y: t.f64().default(0),          // in your case: y = up in 3D view, but gameplay plane x/z?
+//     z: t.f64().default(0),          // if full 3D → store z too
+//     vx: t.f64().default(0),         // velocity
+//     vy: t.f64().default(0),
+//     vz: t.f64().default(0),
+//     ax: t.f64().default(0),         // acceleration
+//     ay: t.f64().default(0),
+//     az: t.f64().default(0),
+//     size_x: t.f64().default(1),
+//     size_y: t.f64().default(1),
+//     mass: t.f64().default(1),
+//     isStatic: t.bool().default(false),
+//     isKinematic: t.bool().default(false),
+//     restitution: t.f64().default(0.4),
+//     friction: t.f64().default(0.8),
+//   }
+// );
+
+// const Test2D = table(
+//   { name: 'test_2d', public: true },
+//   {
+//     identity: t.identity().primaryKey(),
+//     // Composite types
+//     position: Vector3D,
 //   }
 // );
 
@@ -81,14 +105,11 @@ const Obstacle3D = table({
 //-----------------------------------------------
 const SimulationTick = table({ 
   name: 'simulation_tick',
-  // scheduled: (): any => update_simulation_tick
-  scheduled: (): any => update_simulation_tick_collision3d
+  scheduled: (): any => update_simulation_tick
 },{
   scheduled_id: t.u64().primaryKey().autoInc(),
   scheduled_at: t.scheduleAt(),
-  // lastTickTs: t.u64(),                   // ctx.timestamp.millis of last tick ???
-  last_tick_timestamp:t.timestamp(),
-  dt:t.f32(),
+  lastTickTs: t.u64(),                   // ctx.timestamp.millis of last tick ???
 });
 //-----------------------------------------------
 // SPACETIMEDB SCHEMA TABLES
@@ -97,11 +118,19 @@ const spacetimedb = schema({
   user,
   message,
   Entity,
-  Obstacle3D,
-  // Transform3D,
+  Transform3D,
   PlayerInput,
   SimulationTick,
 });
+
+/*
+spacetimedb.reducer('add_test_2d', { x: t.f64(), y: t.f64(), z: t.f64() }, (ctx, { x, y, z }) => {
+  ctx.db.test_2d.insert({
+    // identity: ctx.sender, // Example: Use the caller's identity
+    position: { x, y, z }    // Match the Coordinates object structure
+  });
+});
+*/
 
 function validateName(name: string) {
   if (!name) {
@@ -138,7 +167,7 @@ export const send_message = spacetimedb.reducer({ text: t.string() }, (ctx, { te
   });
 });
 //-----------------------------------------------
-// UPDATE SIMULATION TICK TEST
+// UPDATE SIMULATION TICK
 //-----------------------------------------------
 export const update_simulation_tick = spacetimedb.reducer({ arg: SimulationTick.rowType }, (ctx, { arg }) => {
   // Invoked automatically by the scheduler
@@ -184,79 +213,8 @@ export const update_simulation_tick = spacetimedb.reducer({ arg: SimulationTick.
       //   ...entity,
       // })
 
-      // console.log("Position x: ", entity.position.x , " z: ", entity.position.z );
-
-    }else{// if does not exist create tmp
-       ctx.db.Entity.insert({
-         identity: player.identity,
-         position: { x: 0.0, y: 0.0, z: 0.0 },
-         velocity: { x: 0.0, y: 0.0, z: 0.0 },
-         size: { x: 1.0, y: 1.0, z: 1.0 },
-         direction: { x: 1.0, y: 1.0, z: 1.0 },
-       });
-    }
-  }
-});
-
-
-//-----------------------------------------------
-// UPDATE SIMULATION TICK COLLISION TEST
-//-----------------------------------------------
-export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: SimulationTick.rowType }, (ctx, { arg }) => {
-  // Invoked automatically by the scheduler
-  // arg.message, arg.scheduled_at, arg.scheduled_id
-  // console.log('update_simulation_tick');
-  // console.log(arg);
-  const now = ctx.timestamp;                    // current wall time
-  let dt = 0;                       // we'll compute this
-
-  if (arg.last_tick_timestamp) {        // not first tick
-    const elapsed_ms = now.since(arg.last_tick_timestamp).millis;
-    // console.log("elapsed_ms: ", elapsed_ms);
-    dt = elapsed_ms / 1000.0;       // in seconds
-  } else {
-    dt = 0.033;                     // first tick guess / fallback
-  }
-
-  // console.log("delta time: ", dt);
-
-  // const fixedDtMs = 50;           // your fixed tick rate
-  // const dt = fixedDtMs / 1000;    // in seconds
-  // console.log("update_simulation_tick");
-  // console.log("player input counts:", ctx.db.PlayerInput.count());
-
-  for (const player of ctx.db.PlayerInput.iter()){
-    // console.log(player);
-    // console.log(player.identity.toHexString(), " x:", player.directionX, " y:", player.directionY, " Jump:", player.jump);
-    // console.log("player input >>", " x:", player.directionX, " y:", player.directionY, " Jump:", player.jump);
-
-    const entity = ctx.db.Entity.identity.find(player.identity);
-    // const entity = ctx.db.Transform3D.identity.find(player.identity);
-    // console.log(entity);
-    if(entity){
-
-      const speed = 5.0; // units per second
-      if(player.directionX == 0){
-        entity.velocity.x = 0;
-      }else{
-        entity.velocity.x += player.directionX * speed * dt;
-      }
-
-      if(player.directionY == 0){
-        entity.velocity.z = 0;
-      }else{
-        entity.velocity.z += player.directionY * speed * dt;
-      }
-      
-      // Integrate position
-      entity.position.x += entity.velocity.x * dt;
-      entity.position.z += entity.velocity.z * dt;
-
-      //update data from table row match
-      ctx.db.Entity.identity.update(entity)
-      // ctx.db.Entity.identity.update({
-      //   ...entity,
-      // })
+      // ctx.db.Transform3D.update({...entity,})
+      // ctx.db.Transform3D.identity.update(entity);
 
       // console.log("Position x: ", entity.position.x , " z: ", entity.position.z );
 
@@ -268,16 +226,15 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
          size: { x: 1.0, y: 1.0, z: 1.0 },
          direction: { x: 1.0, y: 1.0, z: 1.0 },
        });
+
+      // ctx.db.Transform3D.insert({
+      //    identity: player.identity,
+      //    position: { x: 0.0, y: 0.0, z: 0.0 },
+      //    velocity: { x: 0.0, y: 0.0, z: 0.0 },
+      //    size: { x: 1.0, y: 1.0, z: 1.0 }
+      // });
     }
   }
-
-  // ── Save the time for next call ─────────────────────────────────────────
-  ctx.db.SimulationTick.scheduled_id.update({
-    ...arg,
-    last_tick_timestamp: now,
-    dt:dt,
-    // accumulator: arg.accumulator   // if using fixed style
-  });
 });
 //-----------------------------------------------
 // PLAYER INPUT
@@ -339,55 +296,6 @@ export const set_player_position = spacetimedb.reducer({
   }
 });
 //-----------------------------------------------
-// 
-//-----------------------------------------------
-
-
-
-//-----------------------------------------------
-// SPAWN OBSTACLE
-//-----------------------------------------------
-export const create_obstacle = spacetimedb.reducer({
-  x:t.f64(),
-  y:t.f64(),
-  z:t.f64(),
-},(ctx, args) => {
-  // console.log("create obstacle");
-  ctx.db.Obstacle3D.insert({
-    position: {x:args.x,y:args.y,z:args.z},
-    size: {x:1,y:1,z:1},
-    id: 0n
-  });
-});
-//-----------------------------------------------
-// UPDATE OBSTACLE
-//-----------------------------------------------
-export const update_obstacle_position_id = spacetimedb.reducer({
-  id:t.u64(),
-  x:t.f64(),
-  y:t.f64(),
-  z:t.f64(),
-},(ctx, args) => {
-  // console.log("update obstacle")
-  let obstacle = ctx.db.Obstacle3D.id.find(args.id);
-  if(obstacle){
-    ctx.db.Obstacle3D.id.update({...obstacle,
-      position: {x:args.x,y:args.y,z:args.z}
-    });
-  }
-});
-//-----------------------------------------------
-// DELETE OBSTACLE
-//-----------------------------------------------
-export const delete_obstacle = spacetimedb.reducer({
-  id: t.u64()
-},(ctx, {id})=>{
-  console.log("delete id:", id);
-  ctx.db.Obstacle3D.id.delete(id);
-})
-
-
-//-----------------------------------------------
 // init
 //-----------------------------------------------
 export const init = spacetimedb.init(ctx => {
@@ -396,8 +304,7 @@ export const init = spacetimedb.init(ctx => {
     scheduled_id: 0n,
     // scheduled_at: ScheduleAt.interval(5_000_000n),// Schedule to run every 5 seconds (5,000,000 microseconds)
     scheduled_at: ScheduleAt.interval(33_333n),// Schedule to run every 1 seconds (1,000,000 microseconds)
-    last_tick_timestamp: ctx.timestamp,
-    dt:0.0,
+    lastTickTs: 0n,
   });
 });
 //-----------------------------------------------
