@@ -18,13 +18,14 @@
 - vanjs 1.6.0
 
 # Game Features:
-- input move (wip)
-- entity (wip)
-- collision ( n/a )
+- input move ( simple )
+- entity ( simple)
+- collision 3d ( simple )
 
 # Notes:
-- reviewing how to create game logics in database api.
-- 
+- This is just a prototype test.
+- Simple collision.
+- Need simple physics collision.
 
 # Information:
   Work in progress.
@@ -33,14 +34,37 @@
   
   Using SpaceTimeDB, Bun js for web server and browser client to keep things simple to run applications. Web server to host site for statics files.
   
-  SpaceTimeDB is Database but with the server with module. You can think of database with server plug ins as module using the Typescript as library. It would need command line to import into the SpaceTimeDB when it running.
+  SpaceTimeDB is is all one for tools, database and server with module plugins. There is command line does have tools and template projects, export and import web assembly as server module api.
 
-  SpaceTimeDB use web socket for the browser client. Reason is that database will listen to table names. Which sent to filter data to client.
+  SpaceTimeDB use web socket for the browser client. Reason is that database will listen to table names. Which sent to filter data to client. As well api call from server module to use function names.
 
 # Physics:
   Work in progress.
 
-  There are two ways. One is using the database as variable and logics. Another way is using the packages example 2d box to init and loop but required resetup every time. Schedule table will loop update tables.
+  There are two ways. One is using the database as variable and logics. Schedule table will loop update tables. Another way is using the packages example 2d box to init and loop but required resetup every time. Or store data in sandbox.
+  
+  Note I have no tested couple methods. Thinking of table as array to handle objects.
+
+  Will keep the physics simple by using the min and max bounding box checks.
+
+  It will not use vertices checks which add more cpu load.
+
+  - https://developer.mozilla.org/en-US/docs/Games/Techniques/3D_collision_detection
+
+
+# Files / Url:
+- threesql.html
+  - Using the local sql to emulator quick test. 
+- index
+  - simple collision test from server to client.
+
+
+## Collision checks:
+- Axis-Aligned Bounding Box (AABB)
+- Oriented Bounding Box (OBB)
+
+```
+```
 
 # SpaceTimeDB Features:
 - table
