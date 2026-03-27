@@ -26,31 +26,107 @@
 - This is just a prototype test.
 - Simple collision.
 - Need simple physics collision.
+- typescript circular dependency files
+    - it need table -> scheduled -> spacetimedb -> reducer
+    - as testing to keep files apart to easy but files error loop handle.
 
 # Information:
   Work in progress.
+
+  Simple collision 3D input controller test with the player and block.
+
+# SpacetimeDB ( Database / Server Module ):
 
   This topic focus on database, server, typescript, javascript and client browser.
   
   Using SpaceTimeDB, Bun js for web server and browser client to keep things simple to run applications. Web server to host site for statics files.
   
-  SpaceTimeDB is is all one for tools, database and server with module plugins. There is command line does have tools and template projects, export and import web assembly as server module api.
+  SpaceTimeDB is is all one for tools, database and server with module plugins. SpaceTimeDB has build cli for tool, template projects, export and import web assembly as server module api. Well there should be at least two binary one for the server and other is the tool utility. 
 
-  SpaceTimeDB use web socket for the browser client. Reason is that database will listen to table names. Which sent to filter data to client. As well api call from server module to use function names.
+  SpaceTimeDB use web socket for the browser client. It base on server typescript module plugin that export to client. It use table names or view to subscribe and can be filter the tables as long it public table. It use reducer from server to client to call. Since it sandbox it would be bridge between the server and client module.
 
 # Physics:
   Work in progress.
 
-  There are two ways. One is using the database as variable and logics. Schedule table will loop update tables. Another way is using the packages example 2d box to init and loop but required resetup every time. Or store data in sandbox.
-  
-  Note I have no tested couple methods. Thinking of table as array to handle objects.
+  Note it use Web Assembly SandBox style. So libraries can't use from nodejs. The array will be use as sql table to store, load, update and delete.
 
-  Will keep the physics simple by using the min and max bounding box checks.
-
-  It will not use vertices checks which add more cpu load.
+  Will keep the physics simple by using the min and max bounding box checks. It will not use vertices checks which add more cpu load.
 
   - https://developer.mozilla.org/en-US/docs/Games/Techniques/3D_collision_detection
 
+# Module files:
+  Note there typescript circular dependency files errors. Due to how table scheduled need reducer function call.
+
+  There will be break up into some tables and reducers for easy management. 
+
+## Single:
+```ts
+export const SimulationTick = table({ 
+  name: 'simulation_tick',
+  // scheduled: (): any => update_simulation_tick
+  scheduled: (): any => update_simulation_tick_collision3d
+},{
+  scheduled_id: t.u64().primaryKey().autoInc(),
+  scheduled_at: t.scheduleAt(),
+  last_tick_timestamp:t.timestamp(),
+  dt:t.f32(),
+});
+//...
+const spacetimedb = schema({
+  user,
+  SimulationTick,
+  //...
+});
+//...
+export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: SimulationTick.rowType }, (ctx, { arg }) => {
+//...
+});
+```
+  This is strip down version of simple collision test. Single file.
+## Multiples:
+Table physics
+```ts
+import {update_simulation_tick_collision3d} from './reducers/reducer_physics'; // it need file.
+//...
+export const SimulationTick = table({ 
+  name: 'simulation_tick',
+  // scheduled: (): any => update_simulation_tick
+  scheduled: (): any => update_simulation_tick_collision3d
+},{
+  scheduled_id: t.u64().primaryKey().autoInc(),
+  scheduled_at: t.scheduleAt(),
+  last_tick_timestamp:t.timestamp(),
+  dt:t.f32(),
+});
+```
+```ts
+// module.ts
+//
+const spacetimedb = schema({
+  user,
+  SimulationTick,
+  //...
+});
+//...
+export const init = spacetimedb.init(ctx => {
+  console.log("[ ====::: INIT SPACETIMEDB APP PHYSICS:::==== ]");
+  ctx.db.SimulationTick.insert({
+    scheduled_id: 0n,
+    scheduled_at: ScheduleAt.interval(33_333n),// Schedule to run every 1 seconds (1,000,000 microseconds)
+    last_tick_timestamp: ctx.timestamp,
+    dt:0.0,
+  });
+});
+```
+```ts
+import {SimulationTick} from './model/table_physics'; // it need file.
+import spacetimedb from './module'
+
+export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: SimulationTick.rowType }, (ctx, { arg }) => {
+//...
+});
+```
+  The result of the typescript circular dependency files.
 
 # Files / Url:
 - threesql.html
