@@ -20,6 +20,7 @@ import {
   create_player_box,
   create_player_sphere,
   delete_player_body,
+  create_entity_box,
   // delete_player_box,
   // create_player_sphere,
   // delete_player_sphere,
@@ -54,6 +55,7 @@ export {
   create_player_box,
   create_player_sphere,
   delete_player_body,
+  create_entity_box,
   
   // create_obstacle,
   // create_box,

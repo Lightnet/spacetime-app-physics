@@ -53,6 +53,15 @@ const spacetimedb = schema({
   // SampleBox,
   // SampleSphere,
 });
+
+function checkAABBOverlap3D(
+  selfPos:THREE.Vector3,
+
+){
+
+}
+
+
 //-----------------------------------------------
 // update simulation tick
 //-----------------------------------------------
@@ -82,7 +91,6 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
     //do not use ctx.sender here...
     const _player = ctx.db.player.identity.find(input_player.identity);
     // console.log("_player: ",_player)
-    // console.log("_player: ",_player?.entityId?.to)
     if(_player){
       if(_player.entityId){
         // console.log(_player.entityId.toString())
@@ -108,6 +116,78 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
           transform.position.z + transform.velocity.z * dt
         );
 
+        const body = ctx.db.body3d.entityId.find(_player.entityId);
+        // if(!body) return;
+        // console.log(body?.params?.tag);
+
+        const selfPos = newPos;       // default if there no shape body
+        let selfIsSphere = null;      // sphere params
+        let selfIsBox = null;         // box params
+        if(body?.params?.tag === 'Box'){
+          selfIsBox = body?.params?.value;
+        }
+        if(body?.params?.tag === 'Sphere'){
+          selfIsSphere = body?.params?.value;
+        }
+        // if(selfIsBox){
+          // console.log("Box", selfIsBox)
+          // console.log("Box width: ", selfIsBox.width)
+        // } // Box { width: 1, height: 1, depth: 1 }
+        // if(selfIsSphere){console.log("Sphere", selfIsSphere)} // Sphere { radius: 0.5 }
+
+        // // nope not best to handle collision
+        // for (const entity of ctx.db.entity.iter()){
+        //   if(entity.id == _player.entityId){// skip this player current own collision.
+        //     continue;
+        //   }
+        //   const otherBody = ctx.db.body3d.entityId.find(entity.id)
+        //   if(otherBody){
+        //   }
+        // }
+
+        let otherBox;
+        let otherSphere;
+        // best to handle collision since table has collision it.
+        for (const otherBody of ctx.db.body3d.iter()){
+          // need string to check not uuid which fail to skip...
+          if(otherBody.entityId.toString() == _player.entityId.toString()) continue;//skip self collision
+          // console.log("otherBody.entityId:", otherBody.entityId.toString(), " otherBody.entityId:", otherBody.entityId.toString());
+          const otherTransform = ctx.db.transform3d.entityId.find(otherBody.entityId)
+          if(otherTransform){
+            if(otherBody.params.tag === 'Box'){
+              otherBox = otherBody.params.value;
+            }
+            if(otherBody.params.tag === 'Sphere'){
+              otherSphere = otherBody.params.value;
+            }
+            //check box collision for now.
+            if(selfIsBox && otherBox){
+
+              let otherPos = new THREE.Vector3(
+                otherTransform.position.x,
+                otherTransform.position.y,
+                otherTransform.position.z
+              )
+              let otherSize = new THREE.Vector3(
+                otherBox.width,
+                otherBox.height,
+                otherBox.depth
+              )
+
+              const box1 = new THREE.Box3();
+              box1.setFromCenterAndSize(newPos,new THREE.Vector3(selfIsBox.width,selfIsBox.height,selfIsBox.depth))
+
+              const box2 = new THREE.Box3();
+              box2.setFromCenterAndSize(otherPos, otherSize)
+
+              if(box1.intersectsBox(box2)){
+                console.log("Boom! Collision.");
+              }
+
+            }
+          }
+        }
+
         // update position for table entity
         transform.position.x = newPos.x;
         transform.position.y = newPos.y;
@@ -118,50 +198,6 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
         ctx.db.transform3d.entityId.update(transform);
 
       }
-    }
-    if(_player){
-      // if(_player.entityId){
-      //   // console.log("test")
-      //   const player_entity = ctx.db.entity.id.find(_player.entityId)
-      //   if(!player_entity){
-      //     return;
-      //   }
-      //   // console.log("move")
-      //   // ── Apply input acceleration ───────────────────────────────────────
-      //   if(input_player.directionX == 0){
-      //     player_entity.velocity.x = 0;
-      //   }else{
-      //     player_entity.velocity.x += input_player.directionX * speed * dt;
-      //   }
-      //   if(input_player.directionY == 0){
-      //     player_entity.velocity.z = 0;
-      //   }else{
-      //     player_entity.velocity.z += input_player.directionY * speed * dt;
-      //   }
-      //   // ── Movement prediction + collision 
-      //   let newPos = new THREE.Vector3(
-      //     player_entity.position.x + player_entity.velocity.x * dt,
-      //     player_entity.position.y + player_entity.velocity.y * dt,
-      //     player_entity.position.z + player_entity.velocity.z * dt
-      //   );
-      //   // check if the point, box, sphere shape
-      //   const selfPos = newPos;
-      //   const selfIsSphere = ctx.db.sphere.entityId.find(player_entity.id) !== null;
-      //   const selfIsBox = ctx.db.box.entityId.find(player_entity.id) !== null;
-      //   if(selfIsSphere){
-      //     // console.log("sphere: detect");
-      //   }
-      //   if(selfIsBox){
-      //     // console.log("selfIsBox: detect");
-      //   }
-      //   // update position for table entity
-      //   player_entity.position.x = newPos.x;
-      //   player_entity.position.y = newPos.y;
-      //   player_entity.position.z = newPos.z;
-      //   // console.log("z:", player_entity.velocity.z)
-      //   // update entity position
-      //   ctx.db.entity.id.update(player_entity);
-      // }
     }
   }
   // ── Save the time for next call ─────────────────────────────────────────

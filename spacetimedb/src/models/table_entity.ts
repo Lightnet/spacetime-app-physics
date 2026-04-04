@@ -31,7 +31,7 @@ export const player = table(
   { name: 'player', public: true },
   {
     identity: t.identity().primaryKey(),
-    entityId: t.uuid().optional(),
+    entityId: t.string().optional(),
   }
 );
 //-----------------------------------------------
@@ -42,7 +42,7 @@ export const player = table(
 export const entity = table(
   { name: 'entity', public: true },
   {
-    id: t.uuid().primaryKey(),
+    id: t.string().primaryKey(),
     // position:Coordinates3D,
     // velocity:Coordinates3D,
     // size:Coordinates3D,
@@ -56,7 +56,7 @@ export const entity = table(
 export const transform3d = table(
   { name: 'transform3d', public: true },
   {
-    entityId: t.uuid().primaryKey(),
+    entityId: t.string().primaryKey(),
     position:Coordinates3D,
     velocity:Coordinates3D,
     scale:Coordinates3D,
@@ -67,26 +67,26 @@ export const transform3d = table(
 //-----------------------------------------------
 // box
 //-----------------------------------------------
-export const box = table({
-  name: 'box', public: true
-},{
-  id: t.u64().primaryKey().autoInc(),
-  type:t.string().default('BOX'),
-  entityId:t.string().unique(), // should have one for position entity
-  // position: Coordinates3D,
-  size:Coordinates3D
-});
+// export const box = table({
+//   name: 'box', public: true
+// },{
+//   id: t.u64().primaryKey().autoInc(),
+//   type:t.string().default('BOX'),
+//   entityId:t.string().unique(), // should have one for position entity
+//   // position: Coordinates3D,
+//   size:Coordinates3D
+// });
 //-----------------------------------------------
 // sphere
 //-----------------------------------------------
-export const sphere = table({
-  name: 'sphere', public: true
-},{
-  id: t.u64().primaryKey().autoInc(),
-  type:t.string().default('SPHERE'),
-  entityId:t.string().unique(),
-  radius:t.f32(),
-});
+// export const sphere = table({
+//   name: 'sphere', public: true
+// },{
+//   id: t.u64().primaryKey().autoInc(),
+//   type:t.string().default('SPHERE'),
+//   entityId:t.string().unique(),
+//   radius:t.f32(),
+// });
 
 // Box parameters: width, height, depth
 export const BoxParams = t.object('BoxParams', {
@@ -108,7 +108,7 @@ export const Shape = t.enum('Shape', {
 export const body3d = table(
   { name: 'body3d', public: true },
   {
-    entityId: t.uuid().primaryKey(),
+    entityId: t.string().primaryKey(),
     name: t.string(),
     params: Shape // This column now accepts BoxParams OR SphereParams
   }

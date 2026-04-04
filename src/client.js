@@ -146,7 +146,7 @@ const conn = DbConnection.builder()
 function setupDBListen(){
   setupDBUser();
   setupDBPlayer();
-  // setupDBBoxes();
+  setupDBBoxes();
   // setupDBMessages()
   // setupDBEntities();
   // setupDBObstacle();
@@ -213,16 +213,41 @@ function setupDBPlayer(){
   });
 }
 
+function oninsert_model_box(row){
+  let isFound = false;
+  // console.log("check====================:", isFound);
+  // scene.traverse()
+  for (const obj_model of scene.children) {
+    // no recursion
+    // console.log(obj_model.userData)
+    if (obj_model.userData?.row){
+      if (obj_model.userData.row.entityId == row.entityId){
+        isFound = true;
+        obj_model.userData.row = row;
+        obj_model.position.x = row.position.x;
+        obj_model.position.z = row.position.z;
+        break;
+      }
+    }
+  }
+  // console.log("isFound:", isFound);
+  if(isFound){
+  }else{
+    // console.log('create cube');
+    create_cube(row);
+  }
+}
+
 function setupDBBoxes(){
   conn
     .subscriptionBuilder()
     .subscribe(tables.my_boxes);
 
   conn.db.my_boxes.onInsert((ctx, row)=>{
-    // console.log('insert Entity row');
-    // console.log(row);
+    console.log('insert Entity Box row');
+    console.log(row);
     check_position(row);
-    update_model_player(row);
+    oninsert_model_box(row);
   });
 }
 
@@ -675,12 +700,10 @@ function update_model_player(row){
   }
   // console.log("isFound:", isFound);
   if(isFound){
-
   }else{
     // console.log('create cube');
     create_cube(row);
   }
-
 }
 
 function animate( time ) {
@@ -777,12 +800,23 @@ function setupPane(){
     conn.reducers.deletePlayerBody({})
   })
 
+  const entityPane = pane.addFolder({
+    title: 'Entity',
+  });
 
+  entityPane.addButton({title:'create box'}).on('click',()=>{
+    conn.reducers.createEntityBox({
+      x:PARAMS.block_position.x,
+      y:PARAMS.block_position.y,
+      z:PARAMS.block_position.z,
+    })
+  })
 
   const testPane = pane.addFolder({
-    title: 'Block',
+    title: 'Test',
   });
-  testPane.addButton({title:'test'}).on('click',()=>{
+  
+  testPane.addButton({title:'test collision'}).on('click',()=>{
     conn.reducers.testCollision({})
   })
   testPane.addButton({title:'test physics shape box'}).on('click',()=>{

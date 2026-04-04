@@ -32,7 +32,7 @@ export const set_player_position = spacetimedb.reducer({
   }
 });
 //-----------------------------------------------
-// CREATE TRANSFORM
+// CREATE TRANSFORM 3D
 //-----------------------------------------------
 export const create_player_transform3d = spacetimedb.reducer({
   x:t.f64(),
@@ -58,7 +58,7 @@ export const create_player_transform3d = spacetimedb.reducer({
   }else{
     console.log("new player entity");
     // let nameId = generateRandomString(ctx, 32);
-    let nameId = ctx.newUuidV7();
+    let nameId = ctx.newUuidV7().toString();
     ctx.db.player.insert({
       identity: ctx.sender,
       entityId: nameId
@@ -77,7 +77,7 @@ export const create_player_transform3d = spacetimedb.reducer({
   }
 });
 //-----------------------------------------------
-// DELETE TRANSFORM
+// DELETE TRANSFORM 3D
 //-----------------------------------------------
 export const delete_player_transform3d = spacetimedb.reducer({},(ctx, {}) => {
   const _player = ctx.db.player.identity.find(ctx.sender);
@@ -168,114 +168,44 @@ export const delete_player_body = spacetimedb.reducer({},(ctx, {}) => {
     }
   }
 )
+
 //-----------------------------------------------
-// CREATE SPHERE
+// CREATE ENTITY BOX
 //-----------------------------------------------
-// export const create_player_sphere = spacetimedb.reducer({
-//   x:t.f64(),
-//   y:t.f64(),
-//   z:t.f64(),
-// },(ctx, {x,y,z}) => {
-//   console.log("set player postion");
-//   const player = ctx.db.player.identity.find(ctx.sender);
-//   if(player){
-//     console.log("found player");
-//     if(player.entityId){
-//       const _entity = ctx.db.entity.id.find(player.entityId);
-//       if(_entity){
-//         _entity.position.x=x;
-//         _entity.position.y=y;
-//         _entity.position.z=z;
-//         ctx.db.entity.id.update(_entity);
-//       }
-//     }
-//   }else{
-//     console.log("new player");
-//     let nameId = generateRandomString(ctx, 32);
-//     const test = ctx.db.entity.insert({
-//       position: {x:0,y:0,z:0},
-//       velocity: {x:0,y:0,z:0},
-//       id: nameId
-//     });
-//     console.log("test entity:", test)
-//     ctx.db.player.insert({
-//       identity: ctx.sender,
-//       entityId: nameId
-//     });
-//     ctx.db.sphere.insert({
-//       type: 'BOX',
-//       entityId: nameId,
-//       id: 0n,
-//       radius: 0.5
-//     });
-//   }
-// });
-//-----------------------------------------------
-// DELETE SPHERE
-//-----------------------------------------------
-// export const delete_player_sphere = spacetimedb.reducer(
-//   {},
-//   (ctx, {}) => {
-//     const _player = ctx.db.player.identity.find(ctx.sender);
-//     if(_player){
-//       console.log("_player: ",_player);
-//       console.log("id: ",_player.entityId);
-//       if(_player.entityId){
-//         const isSphere = ctx.db.sphere.entityId.find(_player.entityId);
-//         console.log("isSphere: ", isSphere)
-//         if(isSphere){
-//           ctx.db.entity.id.delete(_player.entityId);
-//           ctx.db.player.identity.delete(ctx.sender);
-//           ctx.db.sphere.id.delete(isSphere.id);
-//         }
-//       }
-//     }
-//   }
-// )
-//-----------------------------------------------
-// CREATE BOX
-//-----------------------------------------------
-// export const create_box = spacetimedb.reducer({
-//   x:t.f64(),
-//   y:t.f64(),
-//   z:t.f64(),
-// },(ctx, {x, y, z}) => {
-//   console.log("create box");
-//   const nameId = generateRandomString(ctx, 32);
-//   ctx.db.entity.insert({
-//     id: nameId,
-//     position: {x, y, z},
-//     velocity: {x:0,y:0,z:0}
-//   })
-//   ctx.db.box.insert({
-//     type: 'BOX',
-//     entityId: nameId,
-//     id: 0n,
-//     size: {x:1,y:1,z:1}
-//   });
-// });
-//-----------------------------------------------
-// CREATE SPHERE
-//-----------------------------------------------
-// export const create_sphere = spacetimedb.reducer({
-//   x:t.f64(),
-//   y:t.f64(),
-//   z:t.f64(),
-// },(ctx, {x, y, z}) => {
-//   console.log("create box");
-//   const nameId = generateRandomString(ctx, 32);
-//   ctx.db.entity.insert({
-//     id: nameId,
-//     position: {x, y, z},
-//     velocity: {x:0,y:0,z:0}
-//   })
-//   ctx.db.sphere.insert({
-//     type: 'BOX',
-//     entityId: nameId,
-//     id: 0n,
-//     radius: 0.5
-//   });
-// });
+export const create_entity_box = spacetimedb.reducer({
+  x:t.f64(),
+  y:t.f64(),
+  z:t.f64(),
+},(ctx, {x,y,z}) => {
+    console.log("create entity box!");
+    const id = ctx.newUuidV7().toString();
+
+    ctx.db.entity.insert({
+      id: id,
+      created_at: ctx.timestamp
+    })
+
+    ctx.db.transform3d.insert({
+      entityId: id,
+      position: {x,y,z},
+      velocity: {x:0,y:0,z:0},
+      scale: {x:1,y:1,z:1},
+      rotation: {x:0,y:0,z:0}
+    })
+
+    ctx.db.body3d.insert({
+      name: '',
+      entityId: id,
+      params: Shape.Box({
+        width: 1,
+        height: 1,
+        depth: 1
+      })
+    })
+    
+  }
+)
+
 //-----------------------------------------------
 // create block
 //-----------------------------------------------

@@ -35,6 +35,10 @@
 - typescript circular dependency files
     - scheduled required table and reducer.
 
+# View Table Notes:
+- From I guess object format error. Meaning basic types like text and number are easy to filter. While UUID error for format bigint.
+- Note uuid asBigInt does not work with where entityId ne (not equal) in view query for where.
+
 
 # Information:
   Work in progress. This is just prototype testing.
