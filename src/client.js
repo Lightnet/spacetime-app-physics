@@ -18,11 +18,17 @@ const DB_NAME = 'spacetime-app-physics';
 
 const {div, button, label, input, li, ul} = van.tags;
 
+// need to add box, point and sphere data as array to match the update.
+
 const PARAMS = {
   key:"WASD = MOVEMENT",
   key1:"R = Rest Position",
   key2:"X = Test Foo",
-  block_position:{x:0,y:0,z:0}
+  block_position:{x:0,y:0,z:0},
+  position:{x:0,y:0,z:0},
+  boxes:[],
+  spheres:[],
+  points:[], // in case of no shape
 }
 
 const wall_positions = div({style:`background-color:gray;`});
@@ -69,13 +75,9 @@ function create_cube_wireframe(){
 }
 
 const ph_cube = create_cube_wireframe();
-
-
 const axesHelper = new THREE.AxesHelper(2);
 axesHelper.add(ph_cube);
 scene.add(axesHelper);
-
-
 
 function apply_user(ctx){
   // console.log("apply");
@@ -90,19 +92,22 @@ function apply_messages(ctx){
 }
 
 function check_position(row){
-  const elEntity = document.getElementById(row.identity.toHexString())
+  // console.log(row);
+  const elEntity = document.getElementById(row.entityId.toString())
   //entity_position
+  
   if(elEntity){
     elEntity.remove();
-    van.add(entity_position,div({id:row.identity.toHexString()},
-      label('[entity:' + row.identity.toHexString().substring(0,16) + " ]"),
+    // van.add(entity_position,div({id:row.identity.toHexString()},
+    van.add(entity_position,div({id:row.entityId.toString()},
+      label('[entity:' + row.entityId.toString().substring(0,16) + " ]"),
       label(" x: ",row.position.x.toFixed(4)),
       label(" y: ",row.position.y.toFixed(4)),
       label(" z: ",row.position.z.toFixed(4))
     ))
   }else{
-    van.add(entity_position,div({id:row.identity.toHexString()},
-      label('[ entity:' + row.identity.toHexString().substring(0,16) + " ]"),
+    van.add(entity_position,div({id:row.entityId.toString()},
+      label('[ entity:' + row.entityId.toString().substring(0,16) + " ]"),
       label(" x: ",row.position.x.toFixed(4)),
       label(" y: ",row.position.y.toFixed(4)),
       label(" z: ",row.position.z.toFixed(4))
@@ -140,17 +145,11 @@ const conn = DbConnection.builder()
 
 function setupDBListen(){
   setupDBUser();
-  //setupDBMessages()
-  setupDBEntities();
-  setupDBObstacle();
-
-    // conn
-    //   .subscriptionBuilder()
-    //     .onApplied((ctx) => apply_messages(ctx))
-    //     .onError((ctx, error) => {
-    //       console.error(`Subscription failed: ${error}`);
-    //     })
-    //     .subscribe(tables.message);
+  setupDBPlayer();
+  // setupDBBoxes();
+  // setupDBMessages()
+  // setupDBEntities();
+  // setupDBObstacle();
 }
 
 function setupDBUser(){
@@ -181,6 +180,13 @@ function setupDBUser(){
 }
 
 function setupDBMessages(){
+      // conn
+    //   .subscriptionBuilder()
+    //     .onApplied((ctx) => apply_messages(ctx))
+    //     .onError((ctx, error) => {
+    //       console.error(`Subscription failed: ${error}`);
+    //     })
+    //     .subscribe(tables.message);
   //add message on first and if there old message will be added here.
   // conn.db.message.onInsert((ctx, row)=>{
   //   // console.log('insert message row');
@@ -194,6 +200,32 @@ function setupDBMessages(){
   // });
 }
 
+function setupDBPlayer(){
+  conn
+    .subscriptionBuilder()
+    .subscribe(tables.my_player);
+
+  conn.db.my_player.onInsert((ctx, row)=>{
+    console.log('insert Entity row');
+    // console.log(row);
+    check_position(row);
+    update_model_player(row);
+  });
+}
+
+function setupDBBoxes(){
+  conn
+    .subscriptionBuilder()
+    .subscribe(tables.my_boxes);
+
+  conn.db.my_boxes.onInsert((ctx, row)=>{
+    // console.log('insert Entity row');
+    // console.log(row);
+    check_position(row);
+    update_model_player(row);
+  });
+}
+
 function setupDBEntities(){
   // conn
   //   .subscriptionBuilder()
@@ -204,16 +236,16 @@ function setupDBEntities(){
 
   conn
     .subscriptionBuilder()
-    .subscribe(tables.Entity);
+    .subscribe(tables.entity);
 
-  conn.db.Entity.onInsert((ctx, row)=>{
+  conn.db.entity.onInsert((ctx, row)=>{
     console.log('insert Entity row');
     // console.log(row);
     check_position(row);
     update_model_player(row);
   });
 
-  conn.db.Entity.onUpdate((ctx, oldRow, newRow)=>{
+  conn.db.entity.onUpdate((ctx, oldRow, newRow)=>{
     // console.log("update Entity");
     // console.log("oldRow:", oldRow);
     // console.log("newRow:", newRow);
@@ -632,7 +664,7 @@ function update_model_player(row){
     // no recursion
     // console.log(obj_model.userData)
     if (obj_model.userData?.row){
-      if (obj_model.userData.row.identity.toHexString() == row.identity.toHexString()){
+      if (obj_model.userData.row.id == row.id){
         isFound = true;
         obj_model.userData.row = row;
         obj_model.position.x = row.position.x;
@@ -669,22 +701,17 @@ function onWindowResize(event){
 }
 
 window.addEventListener('resize',onWindowResize);
-
-
 document.body.appendChild( renderer.domElement );
 renderer.setAnimationLoop( animate );
 
 function setupPane(){
   const pane = new Pane();
-
-
   const keysPane = pane.addFolder({
     title: 'Keys',
   });
   keysPane.addBinding(PARAMS, 'key',{disabled:true})
   keysPane.addBinding(PARAMS, 'key1',{disabled:true})
   keysPane.addBinding(PARAMS, 'key2',{disabled:true})
-
 
   const blockPane = pane.addFolder({
     title: 'Block',
@@ -701,16 +728,87 @@ function setupPane(){
     );
   });
 
-  blockPane.addButton({title:'Spawn Block'})
-    .on('click',()=>{
-      console.log("Spawn Block");
-      console.log("spawn x:", PARAMS.block_position.x, " y: ", PARAMS.block_position.y ," z:", PARAMS.block_position.z);
-      conn.reducers.createObstacle({
-        x: PARAMS.block_position.x,
-        y: PARAMS.block_position.y,
-        z: PARAMS.block_position.z
-      });
+  blockPane.addButton({title:'Spawn Block'}).on('click',()=>{
+    console.log("Spawn Block");
+    console.log("spawn x:", PARAMS.block_position.x, " y: ", PARAMS.block_position.y ," z:", PARAMS.block_position.z);
+    conn.reducers.createBox({
+      x: PARAMS.block_position.x,
+      y: PARAMS.block_position.y,
+      z: PARAMS.block_position.z
+    });
+    // conn.reducers.createObstacle({
+    //   x: PARAMS.block_position.x,
+    //   y: PARAMS.block_position.y,
+    //   z: PARAMS.block_position.z
+    // });
+  })
+
+  const playerPane = pane.addFolder({
+    title: 'Block',
+  });
+
+  playerPane.addBinding(PARAMS, 'position',{
+    label:'Position'
+  }).on('change', (ev) => {
+    // console.log(PARAMS.block_position);
+    axesHelper.position.set(
+      PARAMS.block_position.x,
+      PARAMS.block_position.y,
+      PARAMS.block_position.z
+    );
+  });
+
+  playerPane.addButton({title:'Set Player Position'}).on('click',()=>{
+    conn.reducers.setPlayerPosition({x:0,y:0,z:0});
+  })
+  playerPane.addButton({title:'Create Player Transform3D'}).on('click',()=>{
+    conn.reducers.createPlayerTransform3D({});
+  })
+  playerPane.addButton({title:'Delete Player Transform3D'}).on('click',()=>{
+    conn.reducers.deletePlayerTransform3D({});
+  })
+  playerPane.addButton({title:'Create Player Box'}).on('click',()=>{
+    conn.reducers.createPlayerBox({x:0,y:0,z:0})
+  })
+  playerPane.addButton({title:'Create Player Sphere'}).on('click',()=>{
+    conn.reducers.createPlayerSphere({x:0,y:0,z:0})
+  })
+  playerPane.addButton({title:'Delete Player Body'}).on('click',()=>{
+    conn.reducers.deletePlayerBody({})
+  })
+
+
+
+  const testPane = pane.addFolder({
+    title: 'Block',
+  });
+  testPane.addButton({title:'test'}).on('click',()=>{
+    conn.reducers.testCollision({})
+  })
+  testPane.addButton({title:'test physics shape box'}).on('click',()=>{
+    conn.reducers.addPhysicsObject({
+      name:"box",
+      params:{
+        tag: "Box",
+        value: {
+          width: 1,
+          height: 1,
+          depth: 1,
+        },
+      }
     })
+  })
+  testPane.addButton({title:'test physics shape shere'}).on('click',()=>{
+    conn.reducers.addPhysicsObject({
+      name:"box",
+      params:{
+        tag: "Sphere",
+        value: {
+          radius: 0.5,
+        },
+      }
+    })
+  })
 }
 
 setupPane()

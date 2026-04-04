@@ -2,9 +2,12 @@
 
 # Licence: MIT
 
+# Status:
+- prototyping
+- reworking entity component system.
+
 # SpaceTimeDB:
-- spacetime cli 2.1.0
-- npm spacetimedb 2.1.0
+- 2.1.0
 
 # Program Languages:
 - Typescript
@@ -24,16 +27,23 @@
 
 # Notes:
 - This is just a prototype test.
-- Simple collision.
+- Simple 3D collision.
 - Need simple physics collision.
 - typescript circular dependency files
     - it need table -> scheduled -> spacetimedb -> reducer
     - as testing to keep files apart to easy but files error loop handle.
+- typescript circular dependency files
+    - scheduled required table and reducer.
+
 
 # Information:
-  Work in progress.
+  Work in progress. This is just prototype testing.
 
-  Simple collision 3D input controller test with the player and block.
+  Simple collision 3D input controller test with the player and block. ( reworking )
+
+  Trying to build simple entity component system. Since there are table act as array which can be filter.
+
+ - https://spacetimedb.com/docs/tables
 
 # SpacetimeDB ( Database / Server Module ):
 
@@ -48,7 +58,7 @@
 # Physics:
   Work in progress.
 
-  Note it use Web Assembly SandBox style. So libraries can't use from nodejs. The array will be use as sql table to store, load, update and delete.
+  Note it use Web Assembly SandBox module for database add on plugin. So libraries can't use from nodejs. The array will be use as sql table to store, load, update and delete.
 
   Will keep the physics simple by using the min and max bounding box checks. It will not use vertices checks which add more cpu load.
 
@@ -207,16 +217,25 @@ spacetime publish --server local --module-path spacetimedb spacetime-app-physics
 spacetime publish --server local spacetime-app-physics --delete-data
 ```
 # spacetime SQL:
+  Quick test refs.
 ```
 spacetime sql --server local spacetime-app-physics "SELECT * FROM user"
-```
-```
+
 spacetime sql --server local spacetime-app-physics "SELECT * FROM message"
-```
-```
+
 spacetime sql --server local spacetime-app-physics "SELECT * FROM player_input"
-```
-```
+
+spacetime sql --server local spacetime-app-physics "SELECT * FROM player"
+
+spacetime sql --server local spacetime-app-physics "SELECT * FROM entity"
+
+spacetime sql --server local spacetime-app-physics "SELECT * FROM body3d"
+
+spacetime sql --server local spacetime-app-physics "SELECT * FROM box"
+spacetime sql --server local spacetime-app-physics "SELECT * FROM sphere"
+spacetime sql --server local spacetime-app-physics "SELECT * FROM physics_objects"
+
+
 spacetime sql --server local spacetime-app-physics "SELECT * FROM simulation_tick"
 ```
 

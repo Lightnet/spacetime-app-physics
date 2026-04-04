@@ -7,7 +7,6 @@ import spacetimedb from '../module';
 export const PLAYER_RADIUS_XZ = 0.45;     // horizontal radius
 export const PLAYER_RADIUS_Y  = 0.45;     // vertical (can be 0.9–1.0 if capsule-like)
 
-
 export function checkAABBOverlap3D(
   px: number, py: number, pz: number,           // player center
   ox: number, oy: number, oz: number,           // obstacle center

@@ -1,40 +1,26 @@
-// server api
-
+//-----------------------------------------------
+// module design to keep it simple
+//-----------------------------------------------
 import { ScheduleAt } from 'spacetimedb';
 import { schema, table, t, SenderError  } from 'spacetimedb/server';
 import { user } from './models/table_user';
 import { message } from './models/table_message';
-import { Entity, Obstacle3D } from './models/table_entity';
+import { 
+  player, 
+  entity,
+  transform3d,
+  body3d,
+  // box,
+  // sphere,
+  physicsObjects,
+} from './models/table_entity';
 import { PlayerInput } from './models/table_contoller';
-import { SampleBox, SampleEntity, SampleSphere } from './models/table_physics';
-
-
-// import { checkAABBOverlap3D, PLAYER_RADIUS_XZ, PLAYER_RADIUS_Y } from './reducers/reducer_physics';
-// import { update_simulation_tick_collision3d } from './reducers/reducer_physics';
-
-console.log("spacetime-app-physics");
-
-const PLAYER_RADIUS_XZ = 0.45;     // horizontal radius
-const PLAYER_RADIUS_Y  = 0.45;     // vertical (can be 0.9–1.0 if capsule-like)
-
-function checkAABBOverlap3D(
-  px: number, py: number, pz: number,           // player center
-  ox: number, oy: number, oz: number,           // obstacle center
-  hw: number, hh: number, hd: number            // obstacle half-sizes: x,y,z
-): boolean {
-  return (
-    px + PLAYER_RADIUS_XZ > ox - hw &&
-    px - PLAYER_RADIUS_XZ < ox + hw &&
-    py + PLAYER_RADIUS_Y  > oy - hh &&
-    py - PLAYER_RADIUS_Y  < oy + hh &&
-    pz + PLAYER_RADIUS_XZ > oz - hd &&
-    pz - PLAYER_RADIUS_XZ < oz + hd
-  );
-}
-
+import * as THREE from 'three'
 //-----------------------------------------------
 // TABLE SimulationTick
 // typescript circular dependency files
+//   - must place in single file with simulation tick reducer function
+//   - note that if there change in reducer function the data must be delete
 //-----------------------------------------------
 export const SimulationTick = table({ 
   name: 'simulation_tick',
@@ -46,26 +32,30 @@ export const SimulationTick = table({
   last_tick_timestamp:t.timestamp(),
   dt:t.f32(),
 });
-
-
 //-----------------------------------------------
 // SPACETIMEDB SCHEMA TABLES
 //-----------------------------------------------
 const spacetimedb = schema({
   user,
   message,
-  Entity,
-  Obstacle3D,
+  player,
+  entity,
+  transform3d,
+  body3d,
+  // box,
+  // sphere,
   // Transform3D,
   PlayerInput,
   SimulationTick,
-
-  SampleEntity,
-  SampleBox,
-  SampleSphere,
+  // 
+  physicsObjects,
+  // SampleEntity,
+  // SampleBox,
+  // SampleSphere,
 });
-
-
+//-----------------------------------------------
+// update simulation tick
+//-----------------------------------------------
 export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: SimulationTick.rowType }, (ctx, { arg }) => {
   // Invoked automatically by the scheduler
   // arg.message, arg.scheduled_at, arg.scheduled_id
@@ -73,7 +63,6 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
   // console.log(arg);
   const now = ctx.timestamp;                    // current wall time
   let dt = 0;                       // we'll compute this
-
   if (arg.last_tick_timestamp) {        // not first tick
     const elapsed_ms = now.since(arg.last_tick_timestamp).millis;
     // console.log("elapsed_ms: ", elapsed_ms);
@@ -81,125 +70,100 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
   } else {
     dt = 0.033;                     // first tick guess / fallback
   }
+  const speed = 5.0; // units per second
+
   // console.log("PlayerInput coutns: ",ctx.db.PlayerInput.count());
   for (const input_player of ctx.db.PlayerInput.iter()){
     // console.log(input_player);
+    // console.log("move?")
     if(!input_player){
       return;
     }
+    //do not use ctx.sender here...
+    const _player = ctx.db.player.identity.find(input_player.identity);
+    // console.log("_player: ",_player)
+    // console.log("_player: ",_player?.entityId?.to)
+    if(_player){
+      if(_player.entityId){
+        // console.log(_player.entityId.toString())
+        const transform = ctx.db.transform3d.entityId.find(_player.entityId);
+        if(!transform) return;
 
-    // console.log("delta time: ", dt);
-    const entity = ctx.db.Entity.identity.find(input_player.identity);
-    // console.log(entity);
-    // console.log(entity?.position.x, " : ", entity?.position.y);
-
-    if(entity){
-      // console.log("entity???")
-      const speed = 5.0; // units per second
-
-      // ── Apply input acceleration ───────────────────────────────────────
-      if(input_player.directionX == 0){
-        entity.velocity.x = 0;
-      }else{
-        entity.velocity.x += input_player.directionX * speed * dt;
-      }
-      if(input_player.directionY == 0){
-        entity.velocity.z = 0;
-      }else{
-        entity.velocity.z += input_player.directionY * speed * dt;
-      }
-      
-      // ── Movement prediction + collision ────────────────────────────────────────
-      let newPos = {
-        x: entity.position.x + entity.velocity.x * dt,
-        y: entity.position.y + entity.velocity.y * dt,
-        z: entity.position.z + entity.velocity.z * dt,
-      };
-
-      let collided = false;
-
-      for (const obs of ctx.db.Obstacle3D.iter()) {
-        const hx = obs.size.x / 2;
-        const hy = obs.size.y / 2;
-        const hz = obs.size.z / 2;
-
-        if (!checkAABBOverlap3D(
-          newPos.x, newPos.y, newPos.z,
-          obs.position.x, obs.position.y, obs.position.z,
-          hx, hy, hz
-        )) {
-          continue;
+        // ── Apply input acceleration ───────────────────────────────────────
+        if(input_player.directionX == 0){
+          transform.velocity.x = 0;
+        }else{
+          transform.velocity.x += input_player.directionX * speed * dt;
+        }
+        if(input_player.directionY == 0){
+          transform.velocity.z = 0;
+        }else{
+          transform.velocity.z += input_player.directionY * speed * dt;
         }
 
-        collided = true;
+        // ── Movement prediction + collision 
+        let newPos = new THREE.Vector3(
+          transform.position.x + transform.velocity.x * dt,
+          transform.position.y + transform.velocity.y * dt,
+          transform.position.z + transform.velocity.z * dt
+        );
 
-        // ── Compute signed penetration on each axis ───────────────────────
-        const penX = [
-          (newPos.x + PLAYER_RADIUS_XZ) - (obs.position.x - hx),   // left/negative x
-          (obs.position.x + hx) - (newPos.x - PLAYER_RADIUS_XZ),   // right/positive x
-        ];
-        const penY = [
-          (newPos.y + PLAYER_RADIUS_Y)  - (obs.position.y - hy),
-          (obs.position.y + hy)  - (newPos.y - PLAYER_RADIUS_Y),
-        ];
-        const penZ = [
-          (newPos.z + PLAYER_RADIUS_XZ) - (obs.position.z - hz),
-          (obs.position.z + hz) - (newPos.z - PLAYER_RADIUS_XZ),
-        ];
+        // update position for table entity
+        transform.position.x = newPos.x;
+        transform.position.y = newPos.y;
+        transform.position.z = newPos.z;
+        // console.log("z:", transform.velocity.z)
+        // console.log("x: ", transform.position.x," z: ", transform.position.z)
+        // update entity position
+        ctx.db.transform3d.entityId.update(transform);
 
-        // Pick the smallest **positive** penetration
-        let minPen = Infinity;
-        let bestAxis: 'x' | 'y' | 'z' | null = null;
-        let bestSign = 0; // which side
-
-        // X
-        if (penX[0] > 0 && penX[0] < minPen) { minPen = penX[0]; bestAxis = 'x'; bestSign = -1; }
-        if (penX[1] > 0 && penX[1] < minPen) { minPen = penX[1]; bestAxis = 'x'; bestSign = +1; }
-        // Y
-        if (penY[0] > 0 && penY[0] < minPen) { minPen = penY[0]; bestAxis = 'y'; bestSign = -1; }
-        if (penY[1] > 0 && penY[1] < minPen) { minPen = penY[1]; bestAxis = 'y'; bestSign = +1; }
-        // Z
-        if (penZ[0] > 0 && penZ[0] < minPen) { minPen = penZ[0]; bestAxis = 'z'; bestSign = -1; }
-        if (penZ[1] > 0 && penZ[1] < minPen) { minPen = penZ[1]; bestAxis = 'z'; bestSign = +1; }
-
-        if (bestAxis && minPen < Infinity) {
-          // ── Correct only one axis (the one with least penetration) ─────
-          if (bestAxis === 'x') {
-            newPos.x = entity.position.x;           // full revert, or: -= minPen * bestSign
-            entity.velocity.x *= 0.1;               // strong damping
-          } else if (bestAxis === 'y') {
-            newPos.y = entity.position.y;
-            entity.velocity.y *= 0.1;
-            // If you later add gravity: can set velocity.y = 0 when hitting floor (bestSign < 0)
-          } else if (bestAxis === 'z') {
-            newPos.z = entity.position.z;
-            entity.velocity.z *= 0.1;
-          }
-        }
-
-        // You can continue checking other obstacles (multi-collision)
-        // or break; if you want to handle only first collision per tick
       }
-
-      // ── Commit new position ─────────────────────────────────────────────
-      entity.position.x = newPos.x;
-      entity.position.y = newPos.y;
-      entity.position.z = newPos.z;
-      
-      // update player position
-      ctx.db.Entity.identity.update({ ...entity });
-
-    }else{
-      ctx.db.Entity.insert({
-        identity: input_player.identity, // use input_player.identity
-        position:{x: 0, y: 0, z: 0},
-        velocity:{x: 0, y: 0, z: 0},
-        size:{x: 1, y: 1, z: 1},
-        direction:{x: 0, y: 0, z: 0},
-      })
+    }
+    if(_player){
+      // if(_player.entityId){
+      //   // console.log("test")
+      //   const player_entity = ctx.db.entity.id.find(_player.entityId)
+      //   if(!player_entity){
+      //     return;
+      //   }
+      //   // console.log("move")
+      //   // ── Apply input acceleration ───────────────────────────────────────
+      //   if(input_player.directionX == 0){
+      //     player_entity.velocity.x = 0;
+      //   }else{
+      //     player_entity.velocity.x += input_player.directionX * speed * dt;
+      //   }
+      //   if(input_player.directionY == 0){
+      //     player_entity.velocity.z = 0;
+      //   }else{
+      //     player_entity.velocity.z += input_player.directionY * speed * dt;
+      //   }
+      //   // ── Movement prediction + collision 
+      //   let newPos = new THREE.Vector3(
+      //     player_entity.position.x + player_entity.velocity.x * dt,
+      //     player_entity.position.y + player_entity.velocity.y * dt,
+      //     player_entity.position.z + player_entity.velocity.z * dt
+      //   );
+      //   // check if the point, box, sphere shape
+      //   const selfPos = newPos;
+      //   const selfIsSphere = ctx.db.sphere.entityId.find(player_entity.id) !== null;
+      //   const selfIsBox = ctx.db.box.entityId.find(player_entity.id) !== null;
+      //   if(selfIsSphere){
+      //     // console.log("sphere: detect");
+      //   }
+      //   if(selfIsBox){
+      //     // console.log("selfIsBox: detect");
+      //   }
+      //   // update position for table entity
+      //   player_entity.position.x = newPos.x;
+      //   player_entity.position.y = newPos.y;
+      //   player_entity.position.z = newPos.z;
+      //   // console.log("z:", player_entity.velocity.z)
+      //   // update entity position
+      //   ctx.db.entity.id.update(player_entity);
+      // }
     }
   }
-
   // ── Save the time for next call ─────────────────────────────────────────
   ctx.db.SimulationTick.scheduled_id.update({
     ...arg,
@@ -208,10 +172,8 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
     // accumulator: arg.accumulator   // if using fixed style
   });
 });
-
-
 //-----------------------------------------------
-// init
+// spacetimedb init
 //-----------------------------------------------
 export const init = spacetimedb.init(ctx => {
   console.log("[ ====::: INIT SPACETIMEDB APP PHYSICS:::==== ]");
@@ -224,7 +186,7 @@ export const init = spacetimedb.init(ctx => {
   });
 });
 //-----------------------------------------------
-// onConnect
+// spacetimedb onConnect
 //-----------------------------------------------
 export const onConnect = spacetimedb.clientConnected(ctx => {
   const user = ctx.db.user.identity.find(ctx.sender);
@@ -240,7 +202,7 @@ export const onConnect = spacetimedb.clientConnected(ctx => {
   }
 });
 //-----------------------------------------------
-// onDisconnect
+// spacetimedb onDisconnect
 //-----------------------------------------------
 export const onDisconnect = spacetimedb.clientDisconnected(ctx => {
   const user = ctx.db.user.identity.find(ctx.sender);
