@@ -31,9 +31,9 @@ export const my_boxes = spacetimedb.view(
 
     // const entityId = _player.entityId; 
     return ctx.from.transform3d
-      .where(r=>r.entityId.ne(entityId))
+      .where(r=>r.entityId.ne(entityId)) ?? []; // ingore player entity id
       // .leftSemijoin(ctx.from.body3d, (t, b) => t.entityId.eq(b.entityId))
-    return [];
+    // return [];
   }
 );
 

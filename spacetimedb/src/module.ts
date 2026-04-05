@@ -10,8 +10,6 @@ import {
   entity,
   transform3d,
   body3d,
-  // box,
-  // sphere,
   physicsObjects,
 } from './models/table_entity';
 import { PlayerInput } from './models/table_contoller';
@@ -42,9 +40,6 @@ const spacetimedb = schema({
   entity,
   transform3d,
   body3d,
-  // box,
-  // sphere,
-  // Transform3D,
   PlayerInput,
   SimulationTick,
   // 
@@ -129,11 +124,6 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
         if(body?.params?.tag === 'Sphere'){
           selfIsSphere = body?.params?.value;
         }
-        // if(selfIsBox){
-          // console.log("Box", selfIsBox)
-          // console.log("Box width: ", selfIsBox.width)
-        // } // Box { width: 1, height: 1, depth: 1 }
-        // if(selfIsSphere){console.log("Sphere", selfIsSphere)} // Sphere { radius: 0.5 }
 
         // // nope not best to handle collision
         // for (const entity of ctx.db.entity.iter()){
@@ -147,6 +137,7 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
 
         let otherBox;
         let otherSphere;
+        let isCollide = false;
         // best to handle collision since table has collision it.
         for (const otherBody of ctx.db.body3d.iter()){
           // need string to check not uuid which fail to skip...
@@ -158,7 +149,7 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
               otherBox = otherBody.params.value;
             }
             if(otherBody.params.tag === 'Sphere'){
-              otherSphere = otherBody.params.value;
+              otherSphere = otherBody.params.value; // Sphere { radius: 0.5 }
             }
             //check box collision for now.
             if(selfIsBox && otherBox){
@@ -173,17 +164,59 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
                 otherBox.height,
                 otherBox.depth
               )
-
               const box1 = new THREE.Box3();
               box1.setFromCenterAndSize(newPos,new THREE.Vector3(selfIsBox.width,selfIsBox.height,selfIsBox.depth))
-
               const box2 = new THREE.Box3();
               box2.setFromCenterAndSize(otherPos, otherSize)
-
-              if(box1.intersectsBox(box2)){
-                console.log("Boom! Collision.");
+              if(!box1.intersectsBox(box2)){ //not collision
+                // console.log("Collision!");
+                // isCollide=true
+                // break;
+                continue;
               }
-
+              isCollide=true
+              // console.log("Collision");
+              // this handle wall side?
+              // Pick the smallest **positive** penetration
+              const penX = [
+                (newPos.x + selfIsBox.width/2) - (otherTransform.position.x - otherSize.x/2),   // left/negative x
+                (otherTransform.position.x + otherSize.x/2) - (newPos.x - selfIsBox.width/2),   // right/positive x
+              ];
+              const penY = [
+                (newPos.y + selfIsBox.height/2)  - (otherTransform.position.y - otherSize.y/2),
+                (otherTransform.position.y + otherSize.y/2)  - (newPos.y - selfIsBox.height/2),
+              ];
+              const penZ = [
+                (newPos.z + selfIsBox.depth/2) - (otherTransform.position.z - otherSize.z/2),
+                (otherTransform.position.z + otherSize.z/2) - (newPos.z - selfIsBox.depth/2),
+              ];
+              // Pick the smallest **positive** penetration
+              let minPen = Infinity;
+              let bestAxis: 'x' | 'y' | 'z' | null = null;
+              let bestSign = 0; // which side
+              // X
+              if (penX[0] > 0 && penX[0] < minPen) { minPen = penX[0]; bestAxis = 'x'; bestSign = -1; }
+              if (penX[1] > 0 && penX[1] < minPen) { minPen = penX[1]; bestAxis = 'x'; bestSign = +1; }
+              // Y
+              if (penY[0] > 0 && penY[0] < minPen) { minPen = penY[0]; bestAxis = 'y'; bestSign = -1; }
+              if (penY[1] > 0 && penY[1] < minPen) { minPen = penY[1]; bestAxis = 'y'; bestSign = +1; }
+              // Z
+              if (penZ[0] > 0 && penZ[0] < minPen) { minPen = penZ[0]; bestAxis = 'z'; bestSign = -1; }
+              if (penZ[1] > 0 && penZ[1] < minPen) { minPen = penZ[1]; bestAxis = 'z'; bestSign = +1; }
+              if (bestAxis && minPen < Infinity) {
+                // ── Correct only one axis (the one with least penetration) ─────
+                if (bestAxis === 'x') {
+                  newPos.x = transform.position.x;           // full revert, or: -= minPen * bestSign
+                  transform.velocity.x *= 0.1;               // strong damping
+                } else if (bestAxis === 'y') {
+                  newPos.y = transform.position.y;
+                  transform.velocity.y *= 0.1;
+                  // If you later add gravity: can set velocity.y = 0 when hitting floor (bestSign < 0)
+                } else if (bestAxis === 'z') {
+                  newPos.z = transform.position.z;
+                  transform.velocity.z *= 0.1;
+                }
+              }
             }
           }
         }
@@ -195,8 +228,9 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
         // console.log("z:", transform.velocity.z)
         // console.log("x: ", transform.position.x," z: ", transform.position.z)
         // update entity position
-        ctx.db.transform3d.entityId.update(transform);
-
+        // if(!isCollide){ // can't do this due that need to slide against the wall.
+          ctx.db.transform3d.entityId.update(transform);
+        // }
       }
     }
   }

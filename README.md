@@ -32,8 +32,6 @@
 - typescript circular dependency files
     - it need table -> scheduled -> spacetimedb -> reducer
     - as testing to keep files apart to easy but files error loop handle.
-- typescript circular dependency files
-    - scheduled required table and reducer.
 
 # View Table Notes:
 - From I guess object format error. Meaning basic types like text and number are easy to filter. While UUID error for format bigint.
@@ -43,7 +41,7 @@
 # Information:
   Work in progress. This is just prototype testing.
 
-  Simple collision 3D input controller test with the player and block. ( reworking )
+  Simple collision 3D input controller test with the player and block.
 
   Trying to build simple entity component system. Since there are table act as array which can be filter.
 
