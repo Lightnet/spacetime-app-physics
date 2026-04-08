@@ -3,7 +3,7 @@
 # Licence: MIT
 
 # Status:
-- prototyping
+- This is just a prototype test.
 - reworking entity component system.
 
 # SpaceTimeDB:
@@ -25,27 +25,21 @@
 - entity ( simple)
 - collision 3d ( simple )
 
-# Notes:
-- This is just a prototype test.
-- Simple 3D collision.
-- Need simple physics collision.
-- typescript circular dependency files
-    - it need table -> scheduled -> spacetimedb -> reducer
-    - as testing to keep files apart to easy but files error loop handle.
-
-# View Table Notes:
-- From I guess object format error. Meaning basic types like text and number are easy to filter. While UUID error for format bigint.
-- Note uuid asBigInt does not work with where entityId ne (not equal) in view query for where.
-
-
 # Information:
   Work in progress. This is just prototype testing.
 
   Simple collision 3D input controller test with the player and block.
 
+  Simple physics and trigger which need to add later.
+
   Trying to build simple entity component system. Since there are table act as array which can be filter.
 
  - https://spacetimedb.com/docs/tables
+
+# Controls:
+ - WASD = Movement
+ - Shift Left = Down
+ - Space = Up
 
 # SpacetimeDB ( Database / Server Module ):
 
@@ -96,7 +90,7 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
 ```
   This is strip down version of simple collision test. Single file.
 ## Multiples:
-Table physics
+Table physics simulation
 ```ts
 import {update_simulation_tick_collision3d} from './reducers/reducer_physics'; // it need file.
 //...
@@ -150,9 +144,6 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
 ## Collision checks:
 - Axis-Aligned Bounding Box (AABB)
 - Oriented Bounding Box (OBB)
-
-```
-```
 
 # SpaceTimeDB Features:
 - table
@@ -233,11 +224,6 @@ spacetime sql --server local spacetime-app-physics "SELECT * FROM entity"
 
 spacetime sql --server local spacetime-app-physics "SELECT * FROM body3d"
 
-spacetime sql --server local spacetime-app-physics "SELECT * FROM box"
-spacetime sql --server local spacetime-app-physics "SELECT * FROM sphere"
-spacetime sql --server local spacetime-app-physics "SELECT * FROM physics_objects"
-
-
 spacetime sql --server local spacetime-app-physics "SELECT * FROM simulation_tick"
 ```
 
@@ -249,4 +235,10 @@ spacetime sql --server local spacetime-app-physics "SELECT * FROM simulation_tic
 
 # Notes:
 - Anything is possible to build on database and server module.
-- 
+- typescript circular dependency files
+    - it need table -> scheduled -> spacetimedb -> reducer
+    - as testing to keep files apart to easy but files error loop handle.
+
+# View Table Notes:
+- From I guess object format types error. Meaning basic types like text and number are easy to filter. While UUID error for format bigint.
+- Note uuid asBigInt does not work with where entityId ne (not equal) in view query for where.

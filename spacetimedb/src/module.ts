@@ -10,7 +10,7 @@ import {
   entity,
   transform3d,
   body3d,
-  physicsObjects,
+  // physicsObjects,
 } from './models/table_entity';
 import { PlayerInput } from './models/table_contoller';
 import * as THREE from 'three'
@@ -43,7 +43,7 @@ const spacetimedb = schema({
   PlayerInput,
   SimulationTick,
   // 
-  physicsObjects,
+  // physicsObjects,
   // SampleEntity,
   // SampleBox,
   // SampleSphere,
@@ -98,6 +98,14 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
         }else{
           transform.velocity.x += input_player.directionX * speed * dt;
         }
+        // TEST up and down
+        if(input_player.directionZ == 0){
+          transform.velocity.y = 0;
+        }else{
+          transform.velocity.y += input_player.directionZ * speed * dt;
+        }
+        // console.log(input_player.directionZ)
+
         if(input_player.directionY == 0){
           transform.velocity.z = 0;
         }else{
@@ -110,6 +118,10 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
           transform.position.y + transform.velocity.y * dt,
           transform.position.z + transform.velocity.z * dt
         );
+
+        // console.log(newPos.y);
+        // console.log(transform.velocity.y);
+        // console.log(transform.position.y);
 
         const body = ctx.db.body3d.entityId.find(_player.entityId);
         // if(!body) return;
@@ -221,9 +233,15 @@ export const update_simulation_tick_collision3d = spacetimedb.reducer({ arg: Sim
           }
         }
 
+        // console.log(newPos.y)
+
+        // if(!newPos.y){
+        //   newPos.y = 0;
+        // }
+
         // update position for table entity
         transform.position.x = newPos.x;
-        transform.position.y = newPos.y;
+        transform.position.y = newPos.y ?? 0;
         transform.position.z = newPos.z;
         // console.log("z:", transform.velocity.z)
         // console.log("x: ", transform.position.x," z: ", transform.position.z)
@@ -250,7 +268,7 @@ export const init = spacetimedb.init(ctx => {
   ctx.db.SimulationTick.insert({
     scheduled_id: 0n,
     // scheduled_at: ScheduleAt.interval(5_000_000n),// Schedule to run every 5 seconds (5,000,000 microseconds)
-    scheduled_at: ScheduleAt.interval(33_333n),// Schedule to run every 1 seconds (1,000,000 microseconds)
+    scheduled_at: ScheduleAt.interval(33_333n),// Schedule to run every 30 tick
     last_tick_timestamp: ctx.timestamp,
     dt:0.0,
   });

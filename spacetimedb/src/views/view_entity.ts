@@ -1,9 +1,12 @@
-// 
-
+//-----------------------------------------------
+// VIEW ENTITY
+//-----------------------------------------------
 import { schema, table, t, SenderError, Range  } from 'spacetimedb/server';
 import spacetimedb from '../module';
 import { body3d, entity, player, Shape, transform3d } from '../models/table_entity';
-
+//-----------------------------------------------
+// my player transform
+//-----------------------------------------------
 export const my_player = spacetimedb.view(
   { name: 'my_player', public: true },
   t.option(transform3d.rowType),
@@ -16,10 +19,46 @@ export const my_player = spacetimedb.view(
     // return ctx.db.player.identity.find(ctx.sender) ?? undefined;
   }
 );
+//-----------------------------------------------
+// current scene transform 3d, need work later.
+//-----------------------------------------------
+export const scene_transform3d = spacetimedb.view(
+  { name: 'scene_transform3d', public: true },
+  t.array(transform3d.rowType),
+  //@ts-ignore
+  (ctx) => {
+    const _player = ctx.db.player.identity.find(ctx.sender);
+    if (!_player || !_player.entityId) {
+      return [];
+    }
+    const entityId = _player.entityId;
+    return ctx.from.transform3d
+      .where(r=>r.entityId.ne(entityId)) ?? []; // ingore player entity id
+  }
+);
 
+
+export const scene_body3d = spacetimedb.view(
+  { name: 'scene_transform3d', public: true },
+  t.array(transform3d.rowType),
+  //@ts-ignore
+  (ctx) => {
+    const _player = ctx.db.player.identity.find(ctx.sender);
+    if (!_player || !_player.entityId) {
+      return [];
+    }
+    const entityId = _player.entityId;
+    return ctx.from.transform3d
+      .where(r=>r.entityId.ne(entityId)) ?? []; // ingore player entity id
+  }
+);
+//-----------------------------------------------
+// test
+//-----------------------------------------------
 export const my_boxes = spacetimedb.view(
   { name: 'my_boxes', public: true },
   t.array(transform3d.rowType),
+  //@ts-ignore
   (ctx) => {
     const _player = ctx.db.player.identity.find(ctx.sender);
     if (!_player || !_player.entityId) {

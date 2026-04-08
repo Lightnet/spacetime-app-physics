@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { ViewportGizmo } from "three-viewport-gizmo";
 import { Pane } from "tweakpane";
+import { transform } from "typescript";
 
 // import { GUI } from 'three/addons/libs/lil-gui.module.min.js'
 // import { Value } from 'three/examples/jsm/inspector/ui/Values.js';
@@ -20,16 +21,26 @@ const {div, button, label, input, li, ul} = van.tags;
 
 // need to add box, point and sphere data as array to match the update.
 
+let update_select_entities;
+
 const PARAMS = {
   key:"WASD = MOVEMENT",
   key1:"R = Rest Position",
   key2:"X = Test Foo",
+  key3:"ShiftLeft = Down",
+  key4:"Space = Up",
+  entityId:'',
   block_position:{x:0,y:0,z:0},
   position:{x:0,y:0,z:0},
+  entities:[],
+  bodies:[],
+  transform3d:[],
   boxes:[],
   spheres:[],
   points:[], // in case of no shape
 }
+
+setupPane();
 
 const wall_positions = div({style:`background-color:gray;`});
 const size = 10;
@@ -144,14 +155,17 @@ const conn = DbConnection.builder()
 // console.log(conn.reducers);
 
 function setupDBListen(){
-  setupDBUser();
-  setupDBPlayer();
-  setupDBBoxes();
-  // setupDBMessages()
-  // setupDBEntities();
-  // setupDBObstacle();
-}
 
+  setupDBUser();
+  // setupDBMessages()
+  setupDBPlayer();
+  setupDBBody3D();
+  setupDBEntities();
+  setupDBTransform3D();
+}
+//-----------------------------------------------
+// SET UP USER
+//-----------------------------------------------
 function setupDBUser(){
   conn
     .subscriptionBuilder()
@@ -178,7 +192,9 @@ function setupDBUser(){
       console.log("newRow:", newRow);
     })
 }
-
+//-----------------------------------------------
+// SET UP MESSAGES
+//-----------------------------------------------
 function setupDBMessages(){
       // conn
     //   .subscriptionBuilder()
@@ -199,20 +215,25 @@ function setupDBMessages(){
   //   ))
   // });
 }
-
+//-----------------------------------------------
+// SET UP PLAYER
+//-----------------------------------------------
 function setupDBPlayer(){
   conn
     .subscriptionBuilder()
     .subscribe(tables.my_player);
 
   conn.db.my_player.onInsert((ctx, row)=>{
-    console.log('insert Entity row');
+    // console.log('insert Entity row');
+    // console.log(row.position);
     // console.log(row);
     check_position(row);
     update_model_player(row);
   });
 }
-
+//-----------------------------------------------
+// ON INSERT MODEL 3D
+//-----------------------------------------------
 function oninsert_model_box(row){
   let isFound = false;
   // console.log("check====================:", isFound);
@@ -237,28 +258,103 @@ function oninsert_model_box(row){
     create_cube(row);
   }
 }
-
-function setupDBBoxes(){
-  conn
-    .subscriptionBuilder()
-    .subscribe(tables.my_boxes);
-
-  conn.db.my_boxes.onInsert((ctx, row)=>{
-    console.log('insert Entity Box row');
-    console.log(row);
-    check_position(row);
-    oninsert_model_box(row);
-  });
+//-----------------------------------------------
+// ON DELETE MODEL 3D
+//-----------------------------------------------
+function onUpdate_Model3D(row){
+  // console.log("check====================:", isFound);
+  // scene.traverse()
+  for (const obj_model of scene.children) {
+    // no recursion
+    // console.log(obj_model.userData)
+    if (obj_model.userData?.row){
+      if (obj_model.userData.row.entityId == row.entityId){
+        isFound = true;
+        obj_model.userData.row = row;
+        obj_model.position.x = row.position.x;
+        obj_model.position.z = row.position.z;
+        break;
+      }
+    }
+  }
+}
+//-----------------------------------------------
+// ON DELETE MODEL 3D
+//-----------------------------------------------
+function onDelete_Model3D(row){
+  for (const obj_model of scene.children) {
+    // no recursion
+    // console.log(obj_model.userData)
+    if (obj_model.userData?.row){
+      if (obj_model.userData.row.entityId == row.entityId){
+        scene.remove(obj_model);
+        break;
+      }
+    }
+  }
+}
+//-----------------------------------------------
+// TRANSFORM 3D
+//-----------------------------------------------
+function onInsert_Transform3D(row){
+  create_cube(row);
 }
 
-function setupDBEntities(){
-  // conn
-  //   .subscriptionBuilder()
-  //   .subscribe(tables.PlayerInput);
-  // conn
-  //   .subscriptionBuilder()
-  //   .subscribe(tables.Transform3D);
+function onUpdate_model_Transform3D(row){
+  // console.log("check====================:", isFound);
+  // scene.traverse()
+  for (const obj_model of scene.children) {
+    // no recursion
+    // console.log(obj_model.userData)
+    if (obj_model.userData?.row){
+      if (obj_model.userData.row.entityId == row.entityId){
+        obj_model.userData.row = row;
+        obj_model.position.x = row.position.x;
+        obj_model.position.z = row.position.z;
+        break;
+      }
+    }
+  }
+}
 
+function onDelete_model_Transform3D(row){
+  for (const obj_model of scene.children) {
+    // no recursion
+    // console.log(obj_model.userData)
+    if (obj_model.userData?.row){
+      if (obj_model.userData.row.entityId == row.entityId){
+        scene.remove(obj_model);
+        break;
+      }
+    }
+  }
+}
+
+// this filter player entity out.
+function setupDBTransform3D(){
+  conn
+    .subscriptionBuilder()
+    .subscribe(tables.scene_transform3d);
+
+  conn.db.scene_transform3d.onInsert((ctx, row)=>{
+    console.log('insert Entity Box row');
+    console.log(row);
+    onInsert_Transform3D(row);
+    oninsert_model_box(row);
+  });
+
+  conn.db.scene_transform3d.onUpdate((ctx, oldRow, newRow)=>{
+    onUpdate_model_Transform3D(newRow);
+  });
+
+  conn.db.scene_transform3d.onDelete((ctx, row)=>{
+    onDelete_model_Transform3D(newRow);
+  });
+}
+//-----------------------------------------------
+// ENTITIES
+//-----------------------------------------------
+function setupDBEntities(){
   conn
     .subscriptionBuilder()
     .subscribe(tables.entity);
@@ -266,48 +362,47 @@ function setupDBEntities(){
   conn.db.entity.onInsert((ctx, row)=>{
     console.log('insert Entity row');
     // console.log(row);
-    check_position(row);
-    update_model_player(row);
+    PARAMS.entities.push(row);
+    // console.log(update_select_entities)
+    if(typeof update_select_entities === 'function')update_select_entities();
   });
 
   conn.db.entity.onUpdate((ctx, oldRow, newRow)=>{
     // console.log("update Entity");
-    // console.log("oldRow:", oldRow);
-    // console.log("newRow:", newRow);
-    check_position(newRow);
-    update_model_player(newRow);
-  })
+    // console.log("oldRow:", oldRow, "newRow:", newRow);
+    PARAMS.entities=PARAMS.entities.filter(r=>r.id!=newRow.id);
+    PARAMS.entities.push(newRow);
+  });
 
-  // conn.db.Transform3D.onUpdate((ctx, oldRow, newRow)=>{
-  //   console.log("update Transform3D");
-  //   // console.log("oldRow:", oldRow);
-  //   // console.log("newRow:", newRow);
-  // })
+  conn.db.entity.onDelete((ctx, row)=>{
+    PARAMS.entities=PARAMS.entities.filter(r=>r.id!=row.id);
+    if(typeof update_select_entities === 'function')update_select_entities();
+  });
+}
+//-----------------------------------------------
+// BODY 3D
+//-----------------------------------------------
+function setupDBBody3D(){
+  conn
+    .subscriptionBuilder()
+    .subscribe(tables.body3d);
 
-  // conn
-  //   .subscriptionBuilder()
-  //   // .onApplied((ctx) => apply_user(ctx))
-  //   // .onError((ctx, error) => {
-  //   //   console.error(`Subscription failed: ${error}`);
-  //   // })
-  //   .subscribe(tables.Entity);
+  conn.db.body3d.onInsert((ctx, row)=>{
+    console.log('insert Entity row');
+    // console.log(row);
+    PARAMS.bodies.push(row);
+  });
 
-  // conn.db.Entity.onInsert((ctx, row)=>{
-  //   // console.log('insert entity row');
-  //   // console.log(row);
-  //   // check_position(row);
-  //   // update_model_player(row);
-  // });
+  conn.db.body3d.onUpdate((ctx, oldRow, newRow)=>{
+    // console.log("update Entity");
+    // console.log("oldRow:", oldRow, "newRow:", newRow);
+    PARAMS.bodies=PARAMS.bodies.filter(r=>r.id!=newRow.id);
+    PARAMS.bodies.push(newRow);
+  });
 
-  // any change on user.
-  // conn.db.Entity.onUpdate((ctx, oldRow, newRow)=>{
-  //   // console.log("update???");
-  //   // console.log("oldRow:", oldRow);
-  //   // console.log("newRow:", newRow);
-  //   // check_position(newRow);
-  //   // update_model_player(newRow);
-  // })
-
+  conn.db.body3d.onDelete((ctx, row)=>{
+    PARAMS.bodies=PARAMS.bodies.filter(r=>r.id!=newRow.id);
+  });
 }
 
 //-----------------------------------------------
@@ -507,6 +602,7 @@ const pressedKeys = new Set();
 let currentInput = {
   x: 0.0,
   y: 0.0,
+  z: 0.0,
   jump: false
 };
 
@@ -540,7 +636,7 @@ function handleKeyDown(event) {
   pressedKeys.add(key);
 
   // Handle movement keys
-  if (['KeyW', 'KeyS', 'KeyA', 'KeyD'].includes(key)) {
+  if (['KeyW', 'KeyS', 'KeyA', 'KeyD', 'Space', 'ShiftLeft'].includes(key)) {
     updateMovementDirection();
   }
 
@@ -569,7 +665,7 @@ function handleKeyUp(event) {
   pressedKeys.delete(key);
 
   // Only recalculate if it was a movement key
-  if (['KeyW', 'KeyS', 'KeyA', 'KeyD'].includes(key)) {
+  if (['KeyW', 'KeyS', 'KeyA', 'KeyD','Space', 'ShiftLeft'].includes(key)) {
     updateMovementDirection();
   }
 }
@@ -580,17 +676,28 @@ function handleKeyUp(event) {
 function updateMovementDirection() {
   let moveX = 0;
   let moveY = 0;
+  let moveZ = 0;
 
   if (pressedKeys.has('KeyW')) moveY -= 1;
   if (pressedKeys.has('KeyS')) moveY += 1;
   if (pressedKeys.has('KeyA')) moveX -= 1;
   if (pressedKeys.has('KeyD')) moveX += 1;
 
+  if (pressedKeys.has('Space')){
+    moveZ = 1
+  }else if (pressedKeys.has('ShiftLeft')){
+    moveZ = -1
+  }else{
+    moveZ = 0.0
+  };
+  // console.log("moveZ:", moveZ);
+
   // Normalize for consistent speed (including diagonals)
   const normalized = normalizeMovement(moveX, moveY);
 
   currentInput.x = normalized.x;
   currentInput.y = normalized.y;
+  currentInput.z = moveZ; // test
   // currentInput.jump remains false unless you add jump logic
 
   updateInput();
@@ -694,6 +801,7 @@ function update_model_player(row){
         obj_model.userData.row = row;
         obj_model.position.x = row.position.x;
         obj_model.position.z = row.position.z;
+        obj_model.position.y = row.position.y;
         break;
       }
     }
@@ -735,6 +843,8 @@ function setupPane(){
   keysPane.addBinding(PARAMS, 'key',{disabled:true})
   keysPane.addBinding(PARAMS, 'key1',{disabled:true})
   keysPane.addBinding(PARAMS, 'key2',{disabled:true})
+  keysPane.addBinding(PARAMS, 'key3',{disabled:true})
+  keysPane.addBinding(PARAMS, 'key4',{disabled:true})
 
   const blockPane = pane.addFolder({
     title: 'Block',
@@ -754,11 +864,16 @@ function setupPane(){
   blockPane.addButton({title:'Spawn Block'}).on('click',()=>{
     console.log("Spawn Block");
     console.log("spawn x:", PARAMS.block_position.x, " y: ", PARAMS.block_position.y ," z:", PARAMS.block_position.z);
-    conn.reducers.createBox({
-      x: PARAMS.block_position.x,
-      y: PARAMS.block_position.y,
-      z: PARAMS.block_position.z
-    });
+    conn.reducers.createEntityBoxTest({
+      x:PARAMS.block_position.x,
+      y:PARAMS.block_position.y,
+      z:PARAMS.block_position.z,
+    })
+    // conn.reducers.createBox({
+    //   x: PARAMS.block_position.x,
+    //   y: PARAMS.block_position.y,
+    //   z: PARAMS.block_position.z
+    // });
     // conn.reducers.createObstacle({
     //   x: PARAMS.block_position.x,
     //   y: PARAMS.block_position.y,
@@ -767,7 +882,7 @@ function setupPane(){
   })
 
   const playerPane = pane.addFolder({
-    title: 'Block',
+    title: 'Player',
   });
 
   playerPane.addBinding(PARAMS, 'position',{
@@ -781,57 +896,155 @@ function setupPane(){
     );
   });
 
+  playerPane.addButton({title:'Create Player'}).on('click',()=>{
+    conn.reducers.createPlayer({x:0,y:0,z:0});
+  })
+  playerPane.addButton({title:'Delete Player'}).on('click',()=>{
+    conn.reducers.deletePlayer({});
+  })
+
   playerPane.addButton({title:'Set Player Position'}).on('click',()=>{
     conn.reducers.setPlayerPosition({x:0,y:0,z:0});
   })
-  playerPane.addButton({title:'Create Player Transform3D'}).on('click',()=>{
-    conn.reducers.createPlayerTransform3D({});
+
+  const entitiesPane = pane.addFolder({
+    title: 'Entities',
+  });
+//-----------------------------------------------
+// update list
+//-----------------------------------------------
+  entitiesPane.addButton({title:'Refresh'}).on('click',()=>{
+    update_select_entities();
   })
-  playerPane.addButton({title:'Delete Player Transform3D'}).on('click',()=>{
-    conn.reducers.deletePlayerTransform3D({});
-  })
-  playerPane.addButton({title:'Create Player Box'}).on('click',()=>{
-    conn.reducers.createPlayerBox({x:0,y:0,z:0})
-  })
-  playerPane.addButton({title:'Create Player Sphere'}).on('click',()=>{
-    conn.reducers.createPlayerSphere({x:0,y:0,z:0})
-  })
-  playerPane.addButton({title:'Delete Player Body'}).on('click',()=>{
-    conn.reducers.deletePlayerBody({})
-  })
+  let selectEntities = entitiesPane.addBlade({
+    view: 'list',
+    label: 'Entity ID:',
+    options: [
+      // {text: 'loading', value: 'LDG'},
+      // {text: 'menu', value: 'MNU'},
+      // {text: 'field', value: 'FLD'},
+    ],
+    value: '',
+  });
+
+  update_select_entities = function(){
+    // console.log("test");
+    if(!selectEntities) return;
+    if(selectEntities) selectEntities.dispose();
+
+    let entityOptions = []
+    for(const entity of PARAMS.entities){
+      entityOptions.push({
+        text:entity.id, value: entity.id
+      })
+    }
+
+    selectEntities = entitiesPane.addBlade({
+      view: 'list',
+      label: 'Entity ID:',
+      options: entityOptions,
+      value: '',
+    }).on('change',(e)=>{
+      // console.log(e.value);
+      selectEntity(e.value)
+    })
+  }
+
+  function selectEntity(id){
+    const entity = PARAMS.entities.find(r=>r.id==id)
+    if(entity){
+      console.log("Found Entity ID: ", id);
+      PARAMS.entityId = id;
+    }else{
+      console.log("Not Found Entity ID: ", id);
+    }
+  }
+
 
   const entityPane = pane.addFolder({
     title: 'Entity',
   });
 
-  entityPane.addButton({title:'create box'}).on('click',()=>{
+  entityPane.addBinding(PARAMS, 'entityId',{
+    readonly:true
+  })
+
+  entityPane.addButton({title:'Create Entity'}).on('click',()=>{
+    conn.reducers.createEntity({});
+  })
+
+  entityPane.addButton({title:'Delete Entity'}).on('click',()=>{
+    conn.reducers.deleteEntity({
+      id:PARAMS.entityId
+    });
+  })
+
+  const transform3DPane = entityPane.addFolder({
+    title: 'Tranform 3D',
+  });
+
+  transform3DPane.addButton({title:'Add Transform3D'}).on('click',()=>{
+    conn.reducers.createPlayerTransform3D({});
+  })
+  transform3DPane.addButton({title:'Remove Transform3D'}).on('click',()=>{
+    conn.reducers.removeTransform3D({
+      id:PARAMS.entityId
+    });
+  })
+
+  const bodyPane = entityPane.addFolder({
+    title: 'Body',
+  });
+
+  bodyPane.addButton({title:'Create Box'}).on('click',()=>{
     conn.reducers.createEntityBox({
+      x:1,
+      y:1,
+      z:1
+    })
+  })
+  bodyPane.addButton({title:'Create Sphere'}).on('click',()=>{
+    conn.reducers.createEntitySphere({
+      id:PARAMS.entityId,
+      radius:0.5
+    })
+  })
+  bodyPane.addButton({title:'Remove Body'}).on('click',()=>{
+    conn.reducers.deletePlayerBody({
+      id:PARAMS.entityId
+    })
+  })
+
+  
+  const testPane = pane.addFolder({
+    title: 'Test',
+  });
+  testPane.addButton({title:'create box Test'}).on('click',()=>{
+    conn.reducers.createEntityBoxTest({
       x:PARAMS.block_position.x,
       y:PARAMS.block_position.y,
       z:PARAMS.block_position.z,
     })
   })
 
-  const testPane = pane.addFolder({
-    title: 'Test',
-  });
+  
   
   testPane.addButton({title:'test collision'}).on('click',()=>{
     conn.reducers.testCollision({})
   })
-  testPane.addButton({title:'test physics shape box'}).on('click',()=>{
-    conn.reducers.addPhysicsObject({
-      name:"box",
-      params:{
-        tag: "Box",
-        value: {
-          width: 1,
-          height: 1,
-          depth: 1,
-        },
-      }
-    })
-  })
+  // testPane.addButton({title:'test physics shape box'}).on('click',()=>{
+  //   conn.reducers.addPhysicsObject({
+  //     name:"box",
+  //     params:{
+  //       tag: "Box",
+  //       value: {
+  //         width: 1,
+  //         height: 1,
+  //         depth: 1,
+  //       },
+  //     }
+  //   })
+  // })
   testPane.addButton({title:'test physics shape shere'}).on('click',()=>{
     conn.reducers.addPhysicsObject({
       name:"box",
@@ -843,7 +1056,9 @@ function setupPane(){
       }
     })
   })
+
+
 }
 
-setupPane()
+
 // end

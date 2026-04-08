@@ -1,13 +1,18 @@
+//-----------------------------------------------
 // 
-
+//-----------------------------------------------
 import { schema, table, t, SenderError  } from 'spacetimedb/server';
 import spacetimedb from '../module';
 import * as THREE from 'three';
-
+//-----------------------------------------------
+// 
+//-----------------------------------------------
 export const test_foo = spacetimedb.reducer({},(ctx, args) => {
   console.log("test")
 });
-
+//-----------------------------------------------
+// 
+//-----------------------------------------------
 export const test_collision = spacetimedb.reducer({},(ctx, args) => {
   console.log("test")
   // Define Box 1 using min/max [x, y, z]
@@ -24,6 +29,5 @@ export const test_collision = spacetimedb.reducer({},(ctx, args) => {
   if (box1.intersectsBox(box2)) {
     console.log("Collision detected!");
   }
-
 
 });

@@ -11,6 +11,7 @@ export const update_input = spacetimedb.reducer(
   {
     x: t.f32(),
     y: t.f32(),
+    z: t.f32(),
     jump: t.bool(),
   },
   (ctx, args) => {
@@ -25,6 +26,7 @@ export const update_input = spacetimedb.reducer(
       ctx.db.PlayerInput.identity.update({...player_input,
         directionX:args.x,
         directionY:args.y,
+        directionZ:args.z,
         jump:args.jump
       });
     }else{// create
@@ -33,6 +35,7 @@ export const update_input = spacetimedb.reducer(
         identity: id,
         directionX: args.x,
         directionY: args.y,
+        directionZ: args.z ?? 0.0, // test
         jump: args.jump,
         lastUpdated: ctx.timestamp,
       });

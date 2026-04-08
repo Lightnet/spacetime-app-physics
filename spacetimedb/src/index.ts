@@ -9,30 +9,25 @@ import {
 import spacetimedb, { init, onConnect, onDisconnect, update_simulation_tick_collision3d } from './module';
 import { set_name } from './reducers/reducer_user';
 import { 
+  create_entity,
+  delete_entity,
+  create_player,
+  delete_player,
   set_player_position, 
-  // create_obstacle, 
-  // update_obstacle_position_id, 
-  // delete_obstacle,
-  // create_box,
-  // create_sphere,
   create_player_transform3d,
-  delete_player_transform3d,
-  create_player_box,
-  create_player_sphere,
-  delete_player_body,
+  remove_transform3d,
   create_entity_box,
-  // delete_player_box,
-  // create_player_sphere,
-  // delete_player_sphere,
-  // create_player_point,
-  // delete_player_point,
-  add_physics_object,
+  create_entity_sphere,
+  delete_entity_body3d,
+  //
+  create_entity_box_test,
   // ,
 } from './reducers/reducer_entity';
 import { update_input } from './reducers/reducer_controller';
 import {
   my_player,
   my_boxes,
+  scene_transform3d,
 } from './views/view_entity';
 
 import { test_collision } from './reducers/reducer_test';
@@ -49,29 +44,23 @@ export {
   // physics
   update_simulation_tick_collision3d,
   // entity
+  create_entity,
+  delete_entity,
+  create_player,
+  delete_player,
   set_player_position,
   create_player_transform3d,
-  delete_player_transform3d,
-  create_player_box,
-  create_player_sphere,
-  delete_player_body,
+  remove_transform3d,
   create_entity_box,
-  
-  // create_obstacle,
-  // create_box,
-  // delete_player_box,
-  // create_sphere,
-  // update_obstacle_position_id,
-  // delete_obstacle,
-  // create_player_sphere,
-  // delete_player_sphere,
-  // create_player_point,
-  // delete_player_point,
-
-  add_physics_object,
+  create_entity_sphere,
+  delete_entity_body3d,
+  //...
+  create_entity_box_test,
+  // add_physics_object,
   // view 
   my_player,
   my_boxes,
+  scene_transform3d,
   // type:
   // BoxParams,// nope
   // Shape, // nope
