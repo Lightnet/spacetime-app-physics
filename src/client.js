@@ -22,6 +22,7 @@ const {div, button, label, input, li, ul} = van.tags;
 // need to add box, point and sphere data as array to match the update.
 
 let update_select_entities;
+let marker;
 
 const PARAMS = {
   key:"WASD = MOVEMENT",
@@ -84,10 +85,34 @@ function create_wireframe_cube(color){
   line.castShadow = true; // Object can receive shadows
   return line;
 }
+function create_wireframe_point(color){
+  const geometry = new THREE.OctahedronGeometry(0.2);
+  const edges = new THREE.EdgesGeometry(geometry, 15);
+  const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: color }));
+  line.castShadow = true; // Object can receive shadows
+  return line;
+}
 const ph_cube = create_wireframe_cube(0x00bfff)
 const axesHelper = new THREE.AxesHelper(2);
 axesHelper.add(ph_cube);
 scene.add(axesHelper);
+marker = create_wireframe_point(0xF5EE27);
+scene.add(marker);
+function update_marker(){
+  if((marker) && (PARAMS.entityId != "")){
+    
+    const mesh =  scene.children.find(i=>i.userData?.row?.entityId == PARAMS.entityId);
+    if(mesh){
+      marker.visible=true;
+      marker.position.copy(mesh.position);
+    }else{
+      marker.visible=false;
+    }
+  }else{
+    marker.visible=false;
+  }
+}
+
 
 function apply_user(ctx){
   // console.log("apply");
@@ -689,6 +714,7 @@ function animate( time ) {
   if(controls){
     controls.update();
   }
+  update_marker()
   renderer.render( scene, camera );
   gizmo.render();
   // cube.rotation.x = time / 2000;
