@@ -1,9 +1,10 @@
 //-----------------------------------------------
 // module design to keep it simple
 //-----------------------------------------------
+import * as THREE from 'three';
 import { ScheduleAt } from 'spacetimedb';
 import { schema, table, t, SenderError  } from 'spacetimedb/server';
-import { user } from './models/table_user';
+import { users } from './models/table_user';
 import { message } from './models/table_message';
 import { 
   player, 
@@ -13,7 +14,8 @@ import {
   // physicsObjects,
 } from './models/table_entity';
 import { PlayerInput } from './models/table_contoller';
-import * as THREE from 'three'
+
+// import { test_tick } from './models/table_test';
 //-----------------------------------------------
 // TABLE SimulationTick
 // typescript circular dependency files
@@ -34,7 +36,7 @@ export const SimulationTick = table({
 // SPACETIMEDB SCHEMA TABLES
 //-----------------------------------------------
 const spacetimedb = schema({
-  user,
+  users,
   message,
   player,
   entity,
@@ -47,6 +49,7 @@ const spacetimedb = schema({
   // SampleEntity,
   // SampleBox,
   // SampleSphere,
+  // test_tick,
 });
 
 function checkAABBOverlap3D(
@@ -277,12 +280,12 @@ export const init = spacetimedb.init(ctx => {
 // spacetimedb onConnect
 //-----------------------------------------------
 export const onConnect = spacetimedb.clientConnected(ctx => {
-  const user = ctx.db.user.identity.find(ctx.sender);
+  const user = ctx.db.users.identity.find(ctx.sender);
   console.log("SENDER: ",ctx.sender);
   if (user) {
-    ctx.db.user.identity.update({ ...user, online: true });
+    ctx.db.users.identity.update({ ...user, online: true });
   } else {
-    ctx.db.user.insert({
+    ctx.db.users.insert({
       identity: ctx.sender,
       name: undefined,
       online: true,
@@ -293,9 +296,9 @@ export const onConnect = spacetimedb.clientConnected(ctx => {
 // spacetimedb onDisconnect
 //-----------------------------------------------
 export const onDisconnect = spacetimedb.clientDisconnected(ctx => {
-  const user = ctx.db.user.identity.find(ctx.sender);
+  const user = ctx.db.users.identity.find(ctx.sender);
   if (user) {
-    ctx.db.user.identity.update({ ...user, online: false });
+    ctx.db.users.identity.update({ ...user, online: false });
   } else {
     console.warn(
       `Disconnect event for unknown user with identity ${ctx.sender}`

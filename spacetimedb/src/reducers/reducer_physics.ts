@@ -1,26 +1,27 @@
-// 
+// PHYSICS NOT POSSIBLE FOR MODULE
+// typescript circular dependency files
 
 // import { schema, table, t, SenderError  } from 'spacetimedb/server';
 // import { SimulationTick } from '../models/table_physics';
-import spacetimedb from '../module';
+// import spacetimedb from '../module';
 
-export const PLAYER_RADIUS_XZ = 0.45;     // horizontal radius
-export const PLAYER_RADIUS_Y  = 0.45;     // vertical (can be 0.9–1.0 if capsule-like)
+// export const PLAYER_RADIUS_XZ = 0.45;     // horizontal radius
+// export const PLAYER_RADIUS_Y  = 0.45;     // vertical (can be 0.9–1.0 if capsule-like)
 
-export function checkAABBOverlap3D(
-  px: number, py: number, pz: number,           // player center
-  ox: number, oy: number, oz: number,           // obstacle center
-  hw: number, hh: number, hd: number            // obstacle half-sizes: x,y,z
-): boolean {
-  return (
-    px + PLAYER_RADIUS_XZ > ox - hw &&
-    px - PLAYER_RADIUS_XZ < ox + hw &&
-    py + PLAYER_RADIUS_Y  > oy - hh &&
-    py - PLAYER_RADIUS_Y  < oy + hh &&
-    pz + PLAYER_RADIUS_XZ > oz - hd &&
-    pz - PLAYER_RADIUS_XZ < oz + hd
-  );
-}
+// export function checkAABBOverlap3D(
+//   px: number, py: number, pz: number,           // player center
+//   ox: number, oy: number, oz: number,           // obstacle center
+//   hw: number, hh: number, hd: number            // obstacle half-sizes: x,y,z
+// ): boolean {
+//   return (
+//     px + PLAYER_RADIUS_XZ > ox - hw &&
+//     px - PLAYER_RADIUS_XZ < ox + hw &&
+//     py + PLAYER_RADIUS_Y  > oy - hh &&
+//     py - PLAYER_RADIUS_Y  < oy + hh &&
+//     pz + PLAYER_RADIUS_XZ > oz - hd &&
+//     pz - PLAYER_RADIUS_XZ < oz + hd
+//   );
+// }
 
 //-----------------------------------------------
 // UPDATE SIMULATION TICK TEST

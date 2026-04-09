@@ -1,10 +1,10 @@
 //-----------------------------------------------
 // server api module
 //-----------------------------------------------
-import {
-  BoxParams,
-  Shape,
-} from './models/table_entity';
+// import {
+//   BoxParams,
+//   Shape,
+// } from './models/table_entity';
 
 import spacetimedb, { init, onConnect, onDisconnect, update_simulation_tick_collision3d } from './module';
 import { set_name } from './reducers/reducer_user';
@@ -13,12 +13,14 @@ import {
   delete_entity,
   create_player,
   delete_player,
-  set_player_position, 
+  set_player_position,
   create_player_transform3d,
+  create_entity_transform3d,
+  set_transform3d_position,
   remove_transform3d,
   create_entity_box,
   create_entity_sphere,
-  delete_entity_body3d,
+  remove_entity_body3d,
   //
   create_entity_box_test,
   // ,
@@ -30,8 +32,13 @@ import {
   scene_transform3d,
 } from './views/view_entity';
 
-import { test_collision } from './reducers/reducer_test';
-
+import { 
+  test_collision,
+  // update_tick_test,
+} from './reducers/reducer_test';
+//-----------------------------------------------
+// EXPORT
+//-----------------------------------------------
 export {
   //spacetimedb
   init,
@@ -50,10 +57,12 @@ export {
   delete_player,
   set_player_position,
   create_player_transform3d,
+  create_entity_transform3d,
+  set_transform3d_position,
   remove_transform3d,
   create_entity_box,
   create_entity_sphere,
-  delete_entity_body3d,
+  remove_entity_body3d,
   //...
   create_entity_box_test,
   // add_physics_object,
@@ -66,8 +75,16 @@ export {
   // Shape, // nope
   // test
   test_collision,
+  // update_tick_test,
 }
+// function testimport(){
+//   import('./reducers/reducer_test').then(m => {
+//     // m.update_tick_test
+//   });
+//   // console.log(test);
+// }
 
+// testimport();
 
 //-----------------------------------------------
 // EXPORT SPACETIMEDB

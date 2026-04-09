@@ -21,6 +21,7 @@ export const my_player = spacetimedb.view(
 );
 //-----------------------------------------------
 // current scene transform 3d, need work later.
+// SCENE TRANSFORM 3D
 //-----------------------------------------------
 export const scene_transform3d = spacetimedb.view(
   { name: 'scene_transform3d', public: true },
@@ -36,8 +37,9 @@ export const scene_transform3d = spacetimedb.view(
       .where(r=>r.entityId.ne(entityId)) ?? []; // ingore player entity id
   }
 );
-
-
+//-----------------------------------------------
+// SCENE BODY 3D
+//-----------------------------------------------
 export const scene_body3d = spacetimedb.view(
   { name: 'scene_transform3d', public: true },
   t.array(transform3d.rowType),
@@ -75,8 +77,6 @@ export const my_boxes = spacetimedb.view(
     // return [];
   }
 );
-
-
 
 // export const my_boxes = spacetimedb.view(
 //   { name: 'my_boxes', public: true },

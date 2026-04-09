@@ -4,6 +4,8 @@
 import { schema, table, t, SenderError  } from 'spacetimedb/server';
 import spacetimedb from '../module';
 import * as THREE from 'three';
+import { test_tick } from '../models/table_test';
+import { Registry } from '../logic_registry'
 //-----------------------------------------------
 // 
 //-----------------------------------------------
@@ -29,5 +31,11 @@ export const test_collision = spacetimedb.reducer({},(ctx, args) => {
   if (box1.intersectsBox(box2)) {
     console.log("Collision detected!");
   }
-
 });
+
+export const update_tick_test = spacetimedb.reducer({ arg: test_tick.rowType }, (ctx, { arg }) => {
+  console.log("test");
+})
+
+// Initialize the registry before the sandbox executes scheduled tasks
+Registry.update_tick_test = update_tick_test;

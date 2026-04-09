@@ -26,7 +26,7 @@ export const delete_entity = spacetimedb.reducer({id:t.string()},(ctx,{id})=>{
 // CREATE PLAYER
 //-----------------------------------------------
 export const create_player = spacetimedb.reducer({},(ctx, {}) => {
-  console.log("set player postion");
+  console.log("create player");
   const player = ctx.db.player.identity.find(ctx.sender);
   if(player){
     if(!player.entityId){
@@ -133,14 +133,14 @@ export const set_player_position = spacetimedb.reducer({
   }
 });
 //-----------------------------------------------
-// CREATE TRANSFORM 3D
+// CREATE PLAYER TRANSFORM 3D
 //-----------------------------------------------
 export const create_player_transform3d = spacetimedb.reducer({
   x:t.f64(),
   y:t.f64(),
   z:t.f64(),
 },(ctx, {x,y,z}) => {
-  console.log("set player postion");
+  console.log("create player transform3d");
   const player = ctx.db.player.identity.find(ctx.sender);
   if(player){
     // console.log("found player");
@@ -177,7 +177,55 @@ export const create_player_transform3d = spacetimedb.reducer({
     });
   }
 });
+//-----------------------------------------------
+// CREATE TRANSFORM 3D
+//-----------------------------------------------
+export const create_entity_transform3d = spacetimedb.reducer({
+  id:t.string(),
+  x:t.f64(),
+  y:t.f64(),
+  z:t.f64(),
+},(ctx, {id,x,y,z}) => {
+  console.log("create TRANSFORM postion");
+  const _entity = ctx.db.entity.id.find(id);
+  if(_entity){
+    const transform = ctx.db.transform3d.entityId.find(id);
+    if(!transform){
+      ctx.db.transform3d.insert({
+        entityId: id,
+        position: {x,y,z},
+        velocity: {x:0,y:0,z:0},
+        scale: {x:1,y:1,z:1},
+        rotation: {x:0,y:0,z:0},
+      });
+    }  
+  }
+});
+//-----------------------------------------------
+// SET TRANSFORM 3D POSITION
+//-----------------------------------------------
+export const set_transform3d_position = spacetimedb.reducer({
+  id:t.string(),
+  x:t.f64(),
+  y:t.f64(),
+  z:t.f64()
+},(ctx, {id,x,y,z}) => {
+  console.log("set TRANSFORM postion");
 
+  const _entity = ctx.db.entity.id.find(id);
+  console.log("_entity: ",_entity)
+  if(_entity){
+    const transform = ctx.db.transform3d.entityId.find(id);
+    if(transform){
+      console.log("found???")
+      transform.position.x=x;
+      transform.position.y=y;
+      transform.position.z=z;
+      // console.log(transform.position);
+      ctx.db.transform3d.entityId.update(transform);
+    }  
+  }
+});
 //-----------------------------------------------
 // REMOVE TRANSFORM 3D
 //-----------------------------------------------
@@ -217,7 +265,7 @@ export const create_entity_sphere = spacetimedb.reducer({
   id:t.string(),
   radius :t.f64(),
 },(ctx, {id,radius}) => {
-  console.log("set player postion");
+  console.log("create entity sphere");
   const player = ctx.db.entity.id.find(id);
   if(player){
     console.log("found entity");
@@ -236,7 +284,7 @@ export const create_entity_sphere = spacetimedb.reducer({
 //-----------------------------------------------
 // DELETE ENTITY BODY
 //-----------------------------------------------
-export const delete_entity_body3d = spacetimedb.reducer({id:t.string()},(ctx, {id}) => {
+export const remove_entity_body3d = spacetimedb.reducer({id:t.string()},(ctx, {id}) => {
     console.log("delete body3d!");
     const _entity = ctx.db.entity.id.find(id);
     if(_entity){

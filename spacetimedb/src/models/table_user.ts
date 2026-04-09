@@ -2,9 +2,9 @@
 
 import { schema, table, t, SenderError  } from 'spacetimedb/server';
 
-export const user = table(
+export const users = table(
   { 
-    name: 'user', 
+    name: 'users', 
     public: true,
   },
   {

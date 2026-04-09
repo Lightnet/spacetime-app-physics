@@ -30,8 +30,13 @@ const PARAMS = {
   key3:"ShiftLeft = Down",
   key4:"Space = Up",
   entityId:'',
+  player_entityId:'',
+  player_row:null,
+  isPlayer:false,
   block_position:{x:0,y:0,z:0},
   position:{x:0,y:0,z:0},
+
+  e_position:{x:0,y:0,z:0},
   entities:[],
   bodies:[],
   transform3d:[],
@@ -72,20 +77,14 @@ gizmo.attachControls(controls);
 //-----------------------------------------------
 // 
 //-----------------------------------------------
-function create_cube_wireframe(){
-  const cgeometry = new THREE.BoxGeometry( 1, 1, 1 );
-  // const cmaterial = new THREE.MeshBasicMaterial({
-  const cmaterial = new THREE.MeshStandardMaterial({
-    // color: 0x000000,
-    color: 0x00bfff,// blue
-    wireframe:true
-  });
-  const ccube = new THREE.Mesh( cgeometry, cmaterial );
-  // scene.add( cube );
-  return ccube;
+function create_wireframe_cube(color){
+  const geometry = new THREE.BoxGeometry( 1, 1, 1 );
+  const edges = new THREE.EdgesGeometry(geometry, 15);
+  const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: color }));
+  line.castShadow = true; // Object can receive shadows
+  return line;
 }
-
-const ph_cube = create_cube_wireframe();
+const ph_cube = create_wireframe_cube(0x00bfff)
 const axesHelper = new THREE.AxesHelper(2);
 axesHelper.add(ph_cube);
 scene.add(axesHelper);
@@ -156,7 +155,7 @@ const conn = DbConnection.builder()
 
 function setupDBListen(){
 
-  setupDBUser();
+  // setupDBUser();
   // setupDBMessages()
   setupDBPlayer();
   setupDBBody3D();
@@ -173,9 +172,9 @@ function setupDBUser(){
     .onError((ctx, error) => {
       console.error(`Subscription failed: ${error}`);
     })
-    .subscribe(tables.user);
+    .subscribe(tables.users);
 
-    conn.db.user.onInsert((ctx, row)=>{
+    conn.db.users.onInsert((ctx, row)=>{
       // console.log('insert user row');
       // console.log(row);
       // check if current user client to update their name display
@@ -186,7 +185,7 @@ function setupDBUser(){
     });
 
     // any change on user.
-    conn.db.user.onUpdate((ctx, oldRow, newRow)=>{
+    conn.db.users.onUpdate((ctx, oldRow, newRow)=>{
       console.log("update???");
       console.log("oldRow:", oldRow);
       console.log("newRow:", newRow);
@@ -229,6 +228,8 @@ function setupDBPlayer(){
     // console.log(row);
     check_position(row);
     update_model_player(row);
+    PARAMS.player_entityId = row.entityId;
+    PARAMS.player_row = row;
   });
 }
 //-----------------------------------------------
@@ -341,14 +342,19 @@ function setupDBTransform3D(){
     console.log(row);
     onInsert_Transform3D(row);
     oninsert_model_box(row);
+    PARAMS.transform3d.push(row);
   });
 
   conn.db.scene_transform3d.onUpdate((ctx, oldRow, newRow)=>{
+    console.log('update...')
     onUpdate_model_Transform3D(newRow);
+    PARAMS.transform3d=PARAMS.transform3d.filter(r=>r.entityId!=newRow.entityId);
+    PARAMS.transform3d.push(newRow);
   });
 
   conn.db.scene_transform3d.onDelete((ctx, row)=>{
-    onDelete_model_Transform3D(newRow);
+    onDelete_model_Transform3D(row);
+    PARAMS.transform3d=PARAMS.transform3d.filter(r=>r.entityId!=row.entityId);
   });
 }
 //-----------------------------------------------
@@ -401,110 +407,7 @@ function setupDBBody3D(){
   });
 
   conn.db.body3d.onDelete((ctx, row)=>{
-    PARAMS.bodies=PARAMS.bodies.filter(r=>r.id!=newRow.id);
-  });
-}
-
-//-----------------------------------------------
-// WALL
-//-----------------------------------------------
-function click_wall_delete(id){
-  console.log("delete id:", id);
-  conn.reducers.deleteObstacle({id});
-}
-
-function update_wall(row){
-  const el_item = document.getElementById(row.id);
-  if(!el_item){
-    van.add(wall_positions,div({id:row.id},
-      label('ID:', row.id),
-      label(' x:' + row.position.x.toFixed(2) +' y:' + row.position.y.toFixed(2) +' z:' + row.position.z.toFixed(2)),
-      button({onclick:()=>click_wall_delete(row.id)},'delete')
-    ));
-  }else{
-    el_item.remove();
-    van.add(wall_positions,div({id:row.id},
-      label('ID:', row.id),
-      label(' x:' + row.position.x +' y:' + row.position.x +' z:' + row.position.x),
-      button({onclick:()=>click_wall_delete(row.id)},'delete')
-    ));
-  }
-}
-
-function create_wall(row){
-  const geometry = new THREE.BoxGeometry( 1, 1, 1 );
-  const material = new THREE.MeshBasicMaterial( { 
-    // color: 0x00ffff //green light
-    color: 0xFF0000 //red
-  });
-  const cube = new THREE.Mesh( geometry, material );
-  console.log("wall row");
-  console.log(row);
-  cube.userData.row = row;
-  cube.position.x = row.position.x;
-  cube.position.y = row.position.y;
-  cube.position.z = row.position.z;
-  console.log(cube.position);
-  scene.add( cube );
-}
-
-function delete_wall(row){
-  const el_item = document.getElementById(row.id);
-  el_item.remove();
-
-  scene.traverse((obj) => {
-    if (obj.userData?.row?.id == row.id) {
-      // obj.remove(); // nope...
-      scene.remove(obj)
-      console.log(obj.userData);
-      console.log("found????")
-      // toRemove.push(obj);
-    }
-  });
-}
-
-function update_model_wall(row){
-  let isFound = false;
-  // console.log("check====================:", isFound);
-  // scene.traverse()
-  for (const obj_model of scene.children) {
-    // no recursion
-    // console.log(obj_model.userData)
-    if (obj_model.userData?.row){
-      if (obj_model.userData.row?.id == row.id){
-        isFound = true;
-        obj_model.userData.row = row;
-        obj_model.position.x = row.position.x;
-        obj_model.position.y = row.position.y;
-        obj_model.position.z = row.position.z;
-        break;
-      }
-    }
-  }
-  console.log("isFound:", isFound);
-  if(isFound){
-  }else{
-    // console.log('create cube');
-    create_wall(row);
-  }
-}
-
-function setupDBObstacle(){
-  conn
-    .subscriptionBuilder()
-    .subscribe(tables.Obstacle3D);
-
-  conn.db.Obstacle3D.onInsert((ctx, row)=>{
-    // console.log('insert Obstacle3D row');
-    // console.log(row);
-    update_wall(row);
-    update_model_wall(row);
-  });
-
-  conn.db.Obstacle3D.onDelete((ctx, row)=>{
-    // console.log('delete Obstacle3D row');
-    // console.log(row);
-    delete_wall(row);
+    PARAMS.bodies=PARAMS.bodies.filter(r=>r.id!=row.id);
   });
 }
 
@@ -592,12 +495,9 @@ van.add(document.body, App());
 // ======================
 // KEYBOARD CONTROLS (Normalized Diagonal Movement)
 // ======================
-
 const MOVEMENT_SPEED = 1.0;
-
 // Track which keys are currently pressed
 const pressedKeys = new Set();
-
 // Current input state
 let currentInput = {
   x: 0.0,
@@ -605,18 +505,15 @@ let currentInput = {
   z: 0.0,
   jump: false
 };
-
 // Normalize vector so diagonal movement isn't faster
 function normalizeMovement(x, y) {
   const length = Math.sqrt(x * x + y * y);
   if (length === 0) return { x: 0, y: 0 };
-  
   return {
     x: (x / length) * MOVEMENT_SPEED,
     y: (y / length) * MOVEMENT_SPEED
   };
 }
-
 // Send input to your game/connection
 function updateInput() {
   try {
@@ -625,27 +522,22 @@ function updateInput() {
     console.error("Failed to update input:", error);
   }
 }
-
 // ====================
 // KEY DOWN
 // ====================
 function handleKeyDown(event) {
   const key = event.code;
-
   // Add to pressed keys
   pressedKeys.add(key);
-
   // Handle movement keys
   if (['KeyW', 'KeyS', 'KeyA', 'KeyD', 'Space', 'ShiftLeft'].includes(key)) {
     updateMovementDirection();
   }
-
   // Special actions
   if (key === 'KeyR') {
     console.log('Reset player position');
     conn.reducers.setPlayerPosition({ x: 0, y: 0, z: 0 });
   }
-
   if (key === 'KeyX') {
     console.log('Testing testFoo...');
     console.log('Reducers available:', Object.keys(conn.reducers || {}));
@@ -656,20 +548,17 @@ function handleKeyDown(event) {
     }
   }
 }
-
 // ====================
 // KEY UP
 // ====================
 function handleKeyUp(event) {
   const key = event.code;
   pressedKeys.delete(key);
-
   // Only recalculate if it was a movement key
   if (['KeyW', 'KeyS', 'KeyA', 'KeyD','Space', 'ShiftLeft'].includes(key)) {
     updateMovementDirection();
   }
 }
-
 // ====================
 // CALCULATE MOVEMENT
 // ====================
@@ -677,12 +566,10 @@ function updateMovementDirection() {
   let moveX = 0;
   let moveY = 0;
   let moveZ = 0;
-
   if (pressedKeys.has('KeyW')) moveY -= 1;
   if (pressedKeys.has('KeyS')) moveY += 1;
   if (pressedKeys.has('KeyA')) moveX -= 1;
   if (pressedKeys.has('KeyD')) moveX += 1;
-
   if (pressedKeys.has('Space')){
     moveZ = 1
   }else if (pressedKeys.has('ShiftLeft')){
@@ -691,18 +578,14 @@ function updateMovementDirection() {
     moveZ = 0.0
   };
   // console.log("moveZ:", moveZ);
-
   // Normalize for consistent speed (including diagonals)
   const normalized = normalizeMovement(moveX, moveY);
-
   currentInput.x = normalized.x;
   currentInput.y = normalized.y;
   currentInput.z = moveZ; // test
   // currentInput.jump remains false unless you add jump logic
-
   updateInput();
 }
-
 // ====================
 // INIT
 // ====================
@@ -711,10 +594,8 @@ function initKeyboardControls() {
   window.addEventListener('keyup', handleKeyUp);
   console.log("✅ Keyboard controls initialized (normalized diagonal movement)");
 }
-
 // Call this once when your app starts
 initKeyboardControls();
-
 //-----------------------------------------------
 // 
 //-----------------------------------------------
@@ -722,15 +603,12 @@ function addLights(){
   // Add a HemisphereLight for subtle ambient lighting
   const ambientLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5);
   scene.add(ambientLight);
-
   // Set up the DirectionalLight
   const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
   directionalLight.position.set(5, 5, 5);
   scene.add(directionalLight);
-
   // Set up the shadow
   directionalLight.castShadow = true;
-
   // Optional: Adjust shadow camera for better control and performance (e.g., tighten frustum)
   directionalLight.shadow.mapSize.width = 1024;
   directionalLight.shadow.mapSize.height = 1024;
@@ -743,12 +621,6 @@ function addGridHelper(){
   scene.add( gridHelper );
 }
 addGridHelper()
-
-// const gui = new GUI();
-// const app_game = {
-//   name:"lil-gui"
-// }
-// gui.add( app_game, 'name' );   // Text Field
 function createPlaneFloor(){
   const planeGeometry = new THREE.PlaneGeometry(10, 10);
   const planeMaterial = new THREE.MeshStandardMaterial({ color: 0xf0f0f0 });
@@ -773,19 +645,18 @@ function createPlaneFloor(){
 //-----------------------------------------------
 // 
 //-----------------------------------------------
-function create_cube(row){
+function create_cube(row, color= 0x78160a){
   const geometry = new THREE.BoxGeometry( 1, 1, 1 );
-  const material = new THREE.MeshStandardMaterial( { 
-    // color: 0x00ffff //green light
-    color: 0x008000 //green
-  });
-  const cube = new THREE.Mesh( geometry, material );
-  cube.castShadow = true; // Object can receive shadows
-  cube.userData.row = row;
-  cube.position.x = row.position.x;
-  cube.position.y = row.position.y;
-  cube.position.z = row.position.z;
-  scene.add( cube );
+  const edges = new THREE.EdgesGeometry(geometry, 15);
+  const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: color }));
+  line.castShadow = true; // Object can receive shadows
+  line.userData.row = row;
+  line.position.set(
+    row.position.x,
+    row.position.y,
+    row.position.z
+  )
+  scene.add( line );
 }
 
 function update_model_player(row){
@@ -810,7 +681,7 @@ function update_model_player(row){
   if(isFound){
   }else{
     // console.log('create cube');
-    create_cube(row);
+    create_cube(row,0x0f7a2b);
   }
 }
 
@@ -836,6 +707,17 @@ document.body.appendChild( renderer.domElement );
 renderer.setAnimationLoop( animate );
 
 function setupPane(){
+  let deleteEntity3DBinding;
+
+  let ePosition3DBinding;
+
+  let addTranform3DBinding;
+  let removeTranform3DBinding;
+  let addBox3DBinding;
+  let addSphere3DBinding;
+  let removeBody3DBinding;
+
+
   const pane = new Pane();
   const keysPane = pane.addFolder({
     title: 'Keys',
@@ -869,16 +751,6 @@ function setupPane(){
       y:PARAMS.block_position.y,
       z:PARAMS.block_position.z,
     })
-    // conn.reducers.createBox({
-    //   x: PARAMS.block_position.x,
-    //   y: PARAMS.block_position.y,
-    //   z: PARAMS.block_position.z
-    // });
-    // conn.reducers.createObstacle({
-    //   x: PARAMS.block_position.x,
-    //   y: PARAMS.block_position.y,
-    //   z: PARAMS.block_position.z
-    // });
   })
 
   const playerPane = pane.addFolder({
@@ -955,6 +827,78 @@ function setupPane(){
     if(entity){
       console.log("Found Entity ID: ", id);
       PARAMS.entityId = id;
+      if(PARAMS.player_entityId ==  id){
+        PARAMS.isPlayer = true;
+      }else{
+        PARAMS.isPlayer = false;
+      }
+
+      deleteEntity3DBinding.disabled = false;
+      addTranform3DBinding.disabled = true;
+      removeTranform3DBinding.disabled = true;
+      addBox3DBinding.disabled = true;
+      addSphere3DBinding.disabled = true;
+      removeBody3DBinding.disabled = true;
+      
+      const _transform3d = PARAMS.transform3d.find(r=>r.entityId==id);
+      console.log("_transform3d:", _transform3d)
+
+      console.log("PARAMS.player_row: ",PARAMS.player_row)
+      if(PARAMS.isPlayer){
+        //PARAMS.player_row
+        
+        PARAMS.e_position.x = PARAMS.player_row.position.x;
+        PARAMS.e_position.y = PARAMS.player_row.position.y;
+        PARAMS.e_position.z = PARAMS.player_row.position.z;
+        ePosition3DBinding.refresh()
+      }
+
+      if(_transform3d){
+        addTranform3DBinding.disabled = true;
+        removeTranform3DBinding.disabled = false;
+        console.log(_transform3d.position);
+        PARAMS.e_position.x = _transform3d.position.x;
+        PARAMS.e_position.y = _transform3d.position.y;
+        PARAMS.e_position.z = _transform3d.position.z;
+        // setTimeout(()=>{
+          ePosition3DBinding.refresh()
+        // },500)
+        
+
+      }else{
+        // PARAMS.e_position.x = 0;
+        // PARAMS.e_position.y = 0;
+        // PARAMS.e_position.z = 0;
+        // setTimeout(()=>{
+        //   ePosition3DBinding.refresh()
+        // },500)
+        addTranform3DBinding.disabled = false;
+        removeTranform3DBinding.disabled = true;
+      }
+
+      const _body3d = PARAMS.bodies.find(r=>r.entityId==id);
+      if(_body3d){
+        console.log(_body3d.params);
+        if(_body3d.params.tag == 'Box'){
+          addBox3DBinding.disabled = true;
+        }else{
+          addBox3DBinding.disabled = false;
+        }
+
+        if(_body3d.params.tag == 'Sphere'){
+          addSphere3DBinding.disabled = true;
+        }else{
+          addSphere3DBinding.disabled = false;
+        }
+        removeBody3DBinding.disabled = false
+      }else{
+        addBox3DBinding.disabled = false;
+        addSphere3DBinding.disabled = false;
+        removeBody3DBinding.disabled = true
+      }
+
+
+
     }else{
       console.log("Not Found Entity ID: ", id);
     }
@@ -969,11 +913,15 @@ function setupPane(){
     readonly:true
   })
 
+  entityPane.addBinding(PARAMS, 'isPlayer',{
+    readonly:true
+  })
+
   entityPane.addButton({title:'Create Entity'}).on('click',()=>{
     conn.reducers.createEntity({});
   })
 
-  entityPane.addButton({title:'Delete Entity'}).on('click',()=>{
+  deleteEntity3DBinding = entityPane.addButton({title:'Delete Entity'}).on('click',()=>{
     conn.reducers.deleteEntity({
       id:PARAMS.entityId
     });
@@ -983,10 +931,25 @@ function setupPane(){
     title: 'Tranform 3D',
   });
 
-  transform3DPane.addButton({title:'Add Transform3D'}).on('click',()=>{
-    conn.reducers.createPlayerTransform3D({});
+  ePosition3DBinding = transform3DPane.addBinding(PARAMS, 'e_position').on('change',()=>{
+    conn.reducers.setTransform3DPosition({
+      id:PARAMS.entityId,
+      x:PARAMS.e_position.x,
+      y:PARAMS.e_position.y,
+      z:PARAMS.e_position.z,
+    })
+  });
+
+  addTranform3DBinding = transform3DPane.addButton({title:'Add Transform3D'}).on('click',()=>{
+    console.log("PARAMS.entityId:", PARAMS.entityId);
+    conn.reducers.createEntityTransform3D({
+      id:PARAMS.entityId,
+      x:PARAMS.e_position.x,
+      y:PARAMS.e_position.y,
+      z:PARAMS.e_position.z,
+    });
   })
-  transform3DPane.addButton({title:'Remove Transform3D'}).on('click',()=>{
+  removeTranform3DBinding = transform3DPane.addButton({title:'Remove Transform3D'}).on('click',()=>{
     conn.reducers.removeTransform3D({
       id:PARAMS.entityId
     });
@@ -996,21 +959,22 @@ function setupPane(){
     title: 'Body',
   });
 
-  bodyPane.addButton({title:'Create Box'}).on('click',()=>{
+  addBox3DBinding = bodyPane.addButton({title:'Add Body Box'}).on('click',()=>{
     conn.reducers.createEntityBox({
+      id:PARAMS.entityId,
       x:1,
       y:1,
       z:1
     })
   })
-  bodyPane.addButton({title:'Create Sphere'}).on('click',()=>{
+  addSphere3DBinding = bodyPane.addButton({title:'Add Body Sphere'}).on('click',()=>{
     conn.reducers.createEntitySphere({
       id:PARAMS.entityId,
       radius:0.5
     })
   })
-  bodyPane.addButton({title:'Remove Body'}).on('click',()=>{
-    conn.reducers.deletePlayerBody({
+  removeBody3DBinding = bodyPane.addButton({title:'Remove Body'}).on('click',()=>{
+    conn.reducers.removeEntityBody3D({
       id:PARAMS.entityId
     })
   })
@@ -1026,9 +990,6 @@ function setupPane(){
       z:PARAMS.block_position.z,
     })
   })
-
-  
-  
   testPane.addButton({title:'test collision'}).on('click',()=>{
     conn.reducers.testCollision({})
   })
@@ -1058,7 +1019,11 @@ function setupPane(){
   })
 
 
+  deleteEntity3DBinding.disabled = true;
+  addTranform3DBinding.disabled = true;
+  removeTranform3DBinding.disabled = true;
+  addBox3DBinding.disabled = true;
+  addSphere3DBinding.disabled = true;
+  removeBody3DBinding.disabled = true;
 }
-
-
 // end
